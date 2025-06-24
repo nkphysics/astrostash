@@ -10,6 +10,7 @@ class SQLiteDB:
         db_name = self._get_db_file(db_name)
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
+        self._create_schema()
 
     def _get_db_file(self, dbpath=None) -> pl.Path:
         """
@@ -22,6 +23,13 @@ class SQLiteDB:
             return pl.Path("astrostash.db").resolve()
         else:
             return pl.Path(dbpath).resolve()
+
+    def _create_schema(self):
+        """
+        Creates initial schema for the database 
+        """
+        with open("schema/base.sql", "r", encoding='utf-8') as schema:
+            self.cursor.execute(schema.read())
 
     def close(self):
         """
