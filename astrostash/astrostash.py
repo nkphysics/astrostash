@@ -96,6 +96,25 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def ingest_table(self, table, name, if_exists="replace") -> None:
+        """
+        Ingests the queried response table into the database with the option
+        to either update, append, or fail if it already exists
+
+        Parameters:
+        table: pd.DataFrame, table data to be ingested into the database
+
+        name: str, name of the data table
+
+        if_exists: str, optional, how to behave if the table already exists.
+                                  (fail, replace, or append)
+        """
+        table.to_sql(name,
+                     self.conn,
+                     if_exists=if_exists,
+                     index=False)
+        self.conn.commit()
+
     def close(self):
         """
         Close the database connection.

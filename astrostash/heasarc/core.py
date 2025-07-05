@@ -45,11 +45,7 @@ class Heasarc:
                 master=master,
                 keywords=keywords).to_pandas(index=False)
             list_df["query_id"] = qid
-            list_df.to_sql("heasarc_catalog_list",
-                           self.ldb.conn,
-                           if_exists='append',
-                           index=False)
-            self.ldb.conn.commit()
+            self.ldb.ingest_table(list_df, "heasarc_catalog_list")
         else:
             # If a record exists for the query, get the query_id to
             # use to get the stashed reponse from the astrostash database.
