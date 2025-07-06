@@ -66,6 +66,22 @@ class SQLiteDB:
                                params={"query_hash": query_hash})
         return stashref
 
+    def _check_table_exists(self, name: str) -> bool:
+        """
+        Checks to ensure that a user specified table exists in the database
+
+        Parameters:
+        name: str, name of table to check if it exists
+
+        Returns:
+        bool, True if table exists (should be self explanatory)
+        """
+        self.cursor.execute("""SELECT 1 FROM sqlite_master
+                               WHERE type='table' AND
+                               name = :name LIMIT 1;""",
+                            {"name": name})
+        return type(self.cursor.fetchone()) != None
+
     def insert_query(self, query_hash: str, refresh_rate: int) -> int:
         """
         Inserts info related to a query into the queries table

@@ -8,4 +8,5 @@ def test_list_catalogs():
     assert "nicermastr" in cat_list_get["name"].values
     cat_list_stash = heasarc.list_catalogs()
     assert cat_list_get.equals(cat_list_stash) is True
+    assert heasarc.ldb._check_table_exists("heasarc_catalog_list") is True
     os.remove("astrostash.db")
