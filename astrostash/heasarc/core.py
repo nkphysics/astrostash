@@ -30,9 +30,9 @@ class Heasarc:
         Returns:
         pd.DataFrame, heasarc catalogs and descriptions
         """
-        query_hash = sha256sum({"catalog": "heasarc_catalog_list",
-                                "master": master,
-                                "keywords": keywords})
+        params = locals().copy()
+        del params["self"], params["refresh_rate"]
+        query_hash = sha256sum(params)
         qdf = self.ldb.get_query(query_hash)
         qid = None
         if qdf.empty is True:
