@@ -131,6 +131,50 @@ class SQLiteDB:
                      index=False)
         self.conn.commit()
 
+    def fetch_sync(self, query_func, table_name: str, dbquery: str,
+                   query_params: dict, refresh_rate: int,
+                   *args, **kwargs) -> pd.DataFrame:
+        """
+        Fetches existing data from the user's database if it exists from a
+        previous query. Otherwise adds the query reference to the db, executes
+        the query function with the passed in function args + kwargs, and
+        stashes the results in the db in the table name specified.
+
+        Parameters:
+        query_func: function, function to call to execute astroquery function
+                              if stashed results do not exist
+
+        table_name: str, table name from user's db
+
+        db_query: str, SQL query to get data from local db table
+
+        *args: args to be passed into query_func (if executed)
+
+        **kwargs: kwargs to be passed into the query_func (if executed)
+
+        Returns:
+        pd.DataFrame, table with the results of the query
+        """
+        query_hash = sha256sum(query_params)
+        qdf = self.get_query(query_hash)
+        qid = None
+        if qdf.empty is True:
+            # If there is no query matching the hash then the query
+            # has not been requested before, so we need to insert the query
+            # hash to get a query_id, and then stash the query results in a
+            # new data table
+            qid = self.insert_query(query_hash, refresh_rate)
+            df = query_func(*args, **kwargs).to_pandas(index=False)
+            df["query_id"] = qid
+            self.ingest_table(df, table_name)
+        else:
+            # If a record exists for the query, get the query_id to
+            # use to get the stashed reponse from the astrostash database.
+            qid = int(qdf["id"].iloc[0])
+        return pd.read_sql(dbquery,
+                           self.conn,
+                           params={"query_id": qid})
+
     def close(self):
         """
         Close the database connection.

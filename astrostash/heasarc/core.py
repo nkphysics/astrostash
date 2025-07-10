@@ -1,7 +1,6 @@
 import astroquery.heasarc
 from astropy.coordinates import SkyCoord
 from astrostash import SQLiteDB
-from astrostash import sha256sum
 import pandas as pd
 
 
@@ -31,27 +30,12 @@ class Heasarc:
         pd.DataFrame, heasarc catalogs and descriptions
         """
         params = locals().copy()
-        del params["self"], params["refresh_rate"]
-        query_hash = sha256sum(params)
-        qdf = self.ldb.get_query(query_hash)
-        qid = None
-        if qdf.empty is True:
-            # If there is no query matching the hash then the query
-            # has not been requested before, so we need to insert the query
-            # hash to get a query_id, and then stash the query results in a
-            # new data table
-            qid = self.ldb.insert_query(query_hash, refresh_rate)
-            list_df = self.aq.list_catalogs(
-                master=master,
-                keywords=keywords).to_pandas(index=False)
-            list_df["query_id"] = qid
-            self.ldb.ingest_table(list_df, "heasarc_catalog_list")
-        else:
-            # If a record exists for the query, get the query_id to
-            # use to get the stashed reponse from the astrostash database.
-            qid = int(qdf["id"].iloc[0])
-        return pd.read_sql("""SELECT name, description
-                              FROM heasarc_catalog_list
-                              WHERE query_id == :query_id;""",
-                           self.ldb.conn,
-                           params={"query_id": qid})
+        del params["self"]
+        dbquery = """SELECT name, description
+                     FROM heasarc_catalog_list
+                     WHERE query_id == :query_id;"""
+        return self.ldb.fetch_sync(self.aq.list_catalogs,
+                                   "heasarc_catalog_list",
+                                   dbquery,
+                                   params,
+                                   refresh_rate)
