@@ -39,3 +39,16 @@ class Heasarc:
                                    dbquery,
                                    params,
                                    refresh_rate)
+
+    def _check_catalog_exists(self, catalog: str) -> bool:
+        """
+        Checks whether or not a catalog exists at the heasarc
+
+        Parameters:
+        catalog: str, name of catalog
+
+        Returns:
+        bool, True if catalog exists at the heasarc otherwise false
+        """
+        catalogs = self.list_catalogs()["name"].values
+        return catalog in catalogs
