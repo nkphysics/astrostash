@@ -52,3 +52,41 @@ class Heasarc:
         """
         catalogs = self.list_catalogs()["name"].values
         return catalog in catalogs
+
+    def query_region(self, position=None, catalog=None,
+                     radius=None, refresh_rate=30, **kwargs):
+        """
+        Queries a catalog at the heasarc for records around a specific
+        region
+
+        Parameters:
+        position: str, `astropy.coordinates` object with coordinate positions
+                        Required if spatial is cone or box.
+                        Ignored if spatial is polygon or all-sky.
+
+        catalog: str, catalog name as listed at the heasarc
+
+        radius: str or `~astropy.units.Quantity`,
+                search radius
+
+        refresh_rate: int, default = 30,
+                      time in days before the query should be refreshed
+
+        **kwargs: additional kwargs to be passed into
+                  astroquery.Heasarc.query_region
+
+        Returns:
+        pd.DataFrame, table of catalog's records around the specified region
+        """
+        params = locals().copy()
+        del params["self"]
+        if self._check_catalog_exists(catalog):
+            dbquery = f"""SELECT * FROM {catalog}
+                          WHERE query_id == :query_id;"""
+            return self.ldb.fetch_sync(
+                self.aq.query_region,
+                catalog,
+                dbquery,
+                params,
+                refresh_rate,
+                **kwargs)

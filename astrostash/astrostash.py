@@ -158,13 +158,14 @@ class SQLiteDB:
         query_hash = sha256sum(query_params)
         qdf = self.get_query(query_hash)
         qid = None
+        del query_params["refresh_rate"]
         if qdf.empty is True:
             # If there is no query matching the hash then the query
             # has not been requested before, so we need to insert the query
             # hash to get a query_id, and then stash the query results in a
             # new data table
             qid = self.insert_query(query_hash, refresh_rate)
-            df = query_func(*args, **kwargs).to_pandas(index=False)
+            df = query_func(*args,**query_params, **kwargs).to_pandas(index=False)
             df["query_id"] = qid
             self.ingest_table(df, table_name)
         else:
