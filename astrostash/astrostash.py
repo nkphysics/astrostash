@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import hashlib
 import json
+import astropy
 
 
 def sha256sum(query_dict: dict) -> str:
@@ -18,6 +19,10 @@ def sha256sum(query_dict: dict) -> str:
     Returns:
     str: SHA-256 hash of the query
     """
+    for key, val in query_dict.items():
+        if isinstance(val, astropy.coordinates.SkyCoord):
+            query_dict = query_dict.copy()
+            query_dict[key] = val.to_string()
     json_str = json.dumps(query_dict, sort_keys=True, ensure_ascii=True)
     hash_obj = hashlib.sha256(json_str.encode('utf-8'))
     return hash_obj.hexdigest()

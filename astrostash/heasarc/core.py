@@ -83,10 +83,9 @@ class Heasarc:
         if self._check_catalog_exists(catalog):
             dbquery = f"""SELECT * FROM {catalog}
                           WHERE query_id == :query_id;"""
-            return self.ldb.fetch_sync(
-                self.aq.query_region,
-                catalog,
-                dbquery,
-                params,
-                refresh_rate,
-                **kwargs)
+            return self.ldb.fetch_sync(self.aq.query_region,
+                                       catalog,
+                                       dbquery,
+                                       params,
+                                       refresh_rate,
+                                       **kwargs)

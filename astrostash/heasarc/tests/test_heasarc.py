@@ -16,7 +16,7 @@ def test_list_catalogs():
 
 def test_query_region():
     heasarc = Heasarc()
-    pos = SkyCoord.from_name('ngc 3783').to_string()
+    pos = SkyCoord.from_name('ngc 3783')
     ngc_table = heasarc.query_region(position=pos, catalog='numaster')
     assert heasarc.ldb._check_table_exists("numaster") is True
     os.remove("astrostash.db")
