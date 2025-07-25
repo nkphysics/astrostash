@@ -15,5 +15,6 @@ CREATE TABLE IF NOT EXISTS query_response_pivot (
     queryid INTEGER,
     responseid INTEGER,
     FOREIGN KEY (queryid) REFERENCES queries(id),
-    FOREIGN KEY (responseid) REFERENCES responses(id)
+    FOREIGN KEY (responseid) REFERENCES responses(id),
+    UNIQUE (queryid, responseid)
 );

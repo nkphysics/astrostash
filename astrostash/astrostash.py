@@ -135,6 +135,26 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def insert_query_response_pivot(self, qid: int, rid: int) -> None:
+        """
+        Inserts a queryid, responseid pair to the respective pivot table
+
+        Parameters:
+        qid: int, query id from queries table
+
+        rid: int, response id from the responses table
+        """
+        self.cursor.execute("""
+            INSERT INTO query_response_pivot (
+                queryid,
+                responseid
+            )
+            VALUES (
+                :qid,
+                :rid
+            );""",
+            {"qid": qid, "rid": rid})
+        self.conn.commit()
 
     def ingest_table(self, table, name, if_exists="replace") -> None:
         """
