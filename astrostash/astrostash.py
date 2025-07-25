@@ -85,7 +85,7 @@ class SQLiteDB:
                                WHERE type='table' AND
                                name = :name LIMIT 1;""",
                             {"name": name})
-        return type(self.cursor.fetchone()) != None
+        return type(self.cursor.fetchone()) is not None
 
     def insert_query(self, query_hash: str, refresh_rate: int) -> int:
         """
@@ -144,8 +144,8 @@ class SQLiteDB:
 
         rid: int, response id from the responses table
         """
-        self.cursor.execute("""
-            INSERT INTO query_response_pivot (
+        self.cursor.execute(
+            """ INSERT INTO query_response_pivot (
                 queryid,
                 responseid
             )
@@ -154,6 +154,30 @@ class SQLiteDB:
                 :rid
             );""",
             {"qid": qid, "rid": rid})
+        self.conn.commit()
+
+    def insert_response_rowid_pivot(self,
+                                    responseid: int,
+                                    rowid: str) -> None:
+        """
+        Inserts a response id and generic rowid pair
+
+        Parameters:
+        responseid: int, response id from responses table
+
+        rowid: str, id associated with a unique row (obsid, name, doi)
+                    of an external table (nicermastr, heasarc_catalog_list)
+        """
+        self.cursor.execute(
+            """ INSERT INTO response_rowid_pivot (
+                responseid,
+                rowid
+            )
+            VALUES (
+                :responseid,
+                :rowid
+            );""",
+            {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
     def ingest_table(self, table, name, if_exists="replace") -> None:

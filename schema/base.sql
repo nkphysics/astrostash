@@ -18,3 +18,10 @@ CREATE TABLE IF NOT EXISTS query_response_pivot (
     FOREIGN KEY (responseid) REFERENCES responses(id),
     UNIQUE (queryid, responseid)
 );
+
+CREATE TABLE IF NOT EXISTS response_rowid_pivot (
+    responseid INTEGER,
+    rowid TEXT,
+    FOREIGN KEY (responseid) REFERENCES responses(id),
+    UNIQUE (responseid, rowid)
+);
