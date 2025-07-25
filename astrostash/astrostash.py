@@ -52,7 +52,7 @@ class SQLiteDB:
         Creates initial schema for the database
         """
         with open("schema/base.sql", "r", encoding='utf-8') as schema:
-            self.cursor.execute(schema.read())
+            self.cursor.executescript(schema.read())
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
         """
@@ -209,8 +209,12 @@ class SQLiteDB:
             # hash to get a query_id, and then stash the query results in a
             # new data table
             qid = self.insert_query(query_hash, refresh_rate)
-            df = query_func(*args,**query_params, **kwargs).to_pandas(index=False)
+            df = query_func(*args,
+                            **query_params,
+                            **kwargs).to_pandas(index=False)
             df["query_id"] = qid
+            rid = self.insert_response(df)
+            self.insert_query_response_pivot(qid, rid)
             self.ingest_table(df, table_name)
         else:
             # If a record exists for the query, get the query_id to
