@@ -117,6 +117,25 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def insert_response(self, df: pd.DataFrame) -> int:
+        """
+        Hashes and then inserts response hash into the responses table
+
+        Parameters:
+        df: pd.DataFrame, table response from server
+
+        Returns:
+        int, id associated with the response after insertion
+        """
+        pdhash = pd.util.hash_pandas_object(df).to_dict()
+        response_hash = sha256sum(pdhash)
+        self.cursor.execute(
+            """INSERT INTO responses (hash) VALUES (:hash);""",
+            {"hash": response_hash})
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+
     def ingest_table(self, table, name, if_exists="replace") -> None:
         """
         Ingests the queried response table into the database with the option

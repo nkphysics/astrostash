@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS queries (
 
 CREATE TABLE IF NOT EXISTS responses (
     id INTEGER PRIMARY KEY,
-    hash TEXT NOT NULL
+    hash TEXT NOT NULL,
+    UNIQUE (hash)
 );
 
 CREATE TABLE IF NOT EXISTS query_response_pivot (
