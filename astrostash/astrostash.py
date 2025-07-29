@@ -180,7 +180,7 @@ class SQLiteDB:
             {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
-    def ingest_table(self, table, name, if_exists="replace") -> None:
+    def ingest_table(self, table, name, if_exists="append") -> None:
         """
         Ingests the queried response table into the database with the option
         to either update, append, or fail if it already exists
@@ -199,8 +199,9 @@ class SQLiteDB:
                      index=False)
         self.conn.commit()
 
-    def fetch_sync(self, query_func, table_name: str, dbquery: str,
-                   query_params: dict, refresh_rate: int,
+    def fetch_sync(self, query_func, table_name: str,
+                   dbquery: str, query_params: dict,
+                   refresh_rate: int, idcol: str = "obsid",
                    *args, **kwargs) -> pd.DataFrame:
         """
         Fetches existing data from the user's database if it exists from a
@@ -230,7 +231,7 @@ class SQLiteDB:
         if qdf.empty is True:
             # If there is no query matching the hash then the query
             # has not been requested before, so we need to insert the query
-            # hash to get a query_id, and then stash the query results in a
+            # hash to get a queryid, and then stash the query results in a
             # new data table
             qid = self.insert_query(query_hash, refresh_rate)
             df = query_func(*args,
@@ -240,13 +241,15 @@ class SQLiteDB:
             rid = self.insert_response(df)
             self.insert_query_response_pivot(qid, rid)
             self.ingest_table(df, table_name)
+            for rowid in df[idcol].values:
+                self.insert_response_rowid_pivot(rid, rowid)
         else:
-            # If a record exists for the query, get the query_id to
+            # If a record exists for the query, get the queryid to
             # use to get the stashed reponse from the astrostash database.
             qid = int(qdf["id"].iloc[0])
         return pd.read_sql(dbquery,
                            self.conn,
-                           params={"query_id": qid})
+                           params={"queryid": qid})
 
     def close(self):
         """

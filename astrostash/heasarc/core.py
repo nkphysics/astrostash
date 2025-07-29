@@ -33,12 +33,13 @@ class Heasarc:
         del params["self"]
         dbquery = """SELECT name, description
                      FROM heasarc_catalog_list
-                     WHERE query_id == :query_id;"""
+                     WHERE query_id == :queryid;"""
         return self.ldb.fetch_sync(self.aq.list_catalogs,
                                    "heasarc_catalog_list",
                                    dbquery,
                                    params,
-                                   refresh_rate)
+                                   refresh_rate,
+                                   idcol="name")
 
     def _check_catalog_exists(self, catalog: str) -> bool:
         """
@@ -81,8 +82,11 @@ class Heasarc:
         params = locals().copy()
         del params["self"]
         if self._check_catalog_exists(catalog):
-            dbquery = f"""SELECT * FROM {catalog}
-                          WHERE query_id == :query_id;"""
+            dbquery = f"""SELECT * FROM {catalog} WHERE obsid IN (
+                              SELECT rowid FROM response_rowid_pivot rrp
+                              INNER JOIN query_response_pivot qrp
+                              ON qrp.responseid = rrp.responseid
+                              WHERE qrp.queryid = :queryid);"""
             return self.ldb.fetch_sync(self.aq.query_region,
                                        catalog,
                                        dbquery,
