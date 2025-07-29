@@ -31,9 +31,13 @@ class Heasarc:
         """
         params = locals().copy()
         del params["self"]
-        dbquery = """SELECT name, description
-                     FROM heasarc_catalog_list
-                     WHERE query_id == :queryid;"""
+        dbquery = """SELECT name, description FROM heasarc_catalog_list
+                     WHERE name IN (
+                         SELECT rowid FROM response_rowid_pivot rrp
+                         INNER JOIN query_response_pivot qrp
+                         ON qrp.responseid = rrp.responseid
+                         WHERE queryid = :queryid
+                     );"""
         return self.ldb.fetch_sync(self.aq.list_catalogs,
                                    "heasarc_catalog_list",
                                    dbquery,

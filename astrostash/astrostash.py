@@ -237,7 +237,6 @@ class SQLiteDB:
             df = query_func(*args,
                             **query_params,
                             **kwargs).to_pandas(index=False)
-            df["query_id"] = qid
             rid = self.insert_response(df)
             self.insert_query_response_pivot(qid, rid)
             self.ingest_table(df, table_name)
