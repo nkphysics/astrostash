@@ -85,7 +85,7 @@ class SQLiteDB:
                                WHERE type='table' AND
                                name = :name LIMIT 1;""",
                             {"name": name})
-        return type(self.cursor.fetchone()) is not None
+        return self.cursor.fetchone() is not None
 
     def insert_query(self, query_hash: str, refresh_rate: int) -> int:
         """
@@ -239,9 +239,14 @@ class SQLiteDB:
                             **kwargs).to_pandas(index=False)
             rid = self.insert_response(df)
             self.insert_query_response_pivot(qid, rid)
-            self.ingest_table(df, table_name)
+            ta_exists = self._check_table_exists(table_name)
             for rowid in df[idcol].values:
                 self.insert_response_rowid_pivot(rid, rowid)
+            if ta_exists is True:
+                dd = pd.read_sql(f"SELECT * FROM {table_name};",
+                                 self.conn)
+                df = df[~df[idcol].isin(dd[idcol])]
+            self.ingest_table(df, table_name)
         else:
             # If a record exists for the query, get the queryid to
             # use to get the stashed reponse from the astrostash database.

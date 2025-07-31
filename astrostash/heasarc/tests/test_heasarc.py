@@ -8,9 +8,12 @@ def test_list_catalogs():
     cat_list_get = heasarc.list_catalogs()
     assert "nicermastr" in cat_list_get["name"].values
     assert heasarc._check_catalog_exists("xtemaster") is True
+    assert heasarc.ldb._check_table_exists("heasarc_catalog_list") is True
+    # Next pull from stashed heasarc_catalog_list table
+    just1 = heasarc.list_catalogs(keywords="xte", master=True)
+    assert len(just1) == 1
     cat_list_stash = heasarc.list_catalogs()
     assert cat_list_get.equals(cat_list_stash) is True
-    assert heasarc.ldb._check_table_exists("heasarc_catalog_list") is True
     os.remove("astrostash.db")
 
 
