@@ -51,7 +51,11 @@ class SQLiteDB:
         """
         Creates initial schema for the database
         """
-        with open("astrostash/schema/base.sql", "r", encoding='utf-8') as schema:
+        with open(
+            "astrostash/schema/base.sql",
+            "r",
+            encoding='utf-8'
+        ) as schema:
             self.cursor.executescript(schema.read())
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
@@ -198,6 +202,27 @@ class SQLiteDB:
                      if_exists=if_exists,
                      index=False)
         self.conn.commit()
+
+    def update_refresh_rate(self, qid: int, refresh_rate: int) -> int:
+        """
+        Updates an existing query record's refresh rate (days)
+
+        Parameters:
+        qid: int, query id
+
+        refresh_rate: int, new refresh rate in days to be associated with a
+                           query
+
+        Returns:
+        int, last accessed queryid that was updated
+        """
+        self.cursor.execute("""UPDATE queries
+                               SET refresh_rate = :refresh_rate
+                               WHERE id = :id""",
+                            {"refresh_rate": refresh_rate,
+                             "id": qid})
+        self.conn.commit()
+        return self.cursor.lastrowid
 
     def fetch_sync(self, query_func, table_name: str,
                    dbquery: str, query_params: dict,
