@@ -91,15 +91,15 @@ class SQLiteDB:
                             {"name": name})
         return self.cursor.fetchone() is not None
 
-    def insert_query(self, query_hash: str, refresh_rate: int) -> int:
+    def insert_query(self, query_hash: str, refresh_rate: int | None) -> int:
         """
         Inserts info related to a query into the queries table
 
         Parameters:
         query: str, sha256 hash of the query parameters
 
-        refresh_rate: int, number of days since last query date to refresh
-                           database with fresh data
+        refresh_rate: int or None, number of days since last query date to
+                                   refresh database with fresh data
 
         Returns:
         int, id for the specific query
@@ -203,15 +203,15 @@ class SQLiteDB:
                      index=False)
         self.conn.commit()
 
-    def update_refresh_rate(self, qid: int, refresh_rate: int) -> int:
+    def update_refresh_rate(self, qid: int, refresh_rate: int | None) -> int:
         """
         Updates an existing query record's refresh rate (days)
 
         Parameters:
         qid: int, query id
 
-        refresh_rate: int, new refresh rate in days to be associated with a
-                           query
+        refresh_rate: int or None, new refresh rate in days to be associated
+                                   with a query
 
         Returns:
         int, last accessed queryid that was updated
@@ -226,7 +226,7 @@ class SQLiteDB:
 
     def fetch_sync(self, query_func, table_name: str,
                    dbquery: str, query_params: dict,
-                   refresh_rate: int, idcol: str = "obsid",
+                   refresh_rate: int | None, idcol: str = "obsid",
                    *args, **kwargs) -> pd.DataFrame:
         """
         Fetches existing data from the user's database if it exists from a

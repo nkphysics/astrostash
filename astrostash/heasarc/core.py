@@ -12,7 +12,7 @@ class Heasarc:
     def list_catalogs(self, *,
                       master=False,
                       keywords=None,
-                      refresh_rate=30) -> pd.DataFrame:
+                      refresh_rate=None) -> pd.DataFrame:
         """
         Gets a DataFrame of all available catalogs in the form of
         (name, description)
@@ -23,7 +23,7 @@ class Heasarc:
         keywords: str or list, keywords used as search terms for catalogs.
                                Words with a str separated by a space
                                are AND'ed, while words in a list are OR'ed
-        refresh_rate: int, default = 30,
+        refresh_rate: int or None, default = None,
                       time in days before the query should be refreshed
 
         Returns:
@@ -59,7 +59,7 @@ class Heasarc:
         return catalog in catalogs
 
     def query_region(self, position=None, catalog=None,
-                     radius=None, refresh_rate=30, **kwargs):
+                     radius=None, refresh_rate=None, **kwargs):
         """
         Queries a catalog at the heasarc for records around a specific
         region
@@ -74,7 +74,7 @@ class Heasarc:
         radius: str or `~astropy.units.Quantity`,
                 search radius
 
-        refresh_rate: int, default = 30,
+        refresh_rate: int or None, default = None,
                       time in days before the query should be refreshed
 
         **kwargs: additional kwargs to be passed into
