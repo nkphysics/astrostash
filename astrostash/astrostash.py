@@ -51,7 +51,7 @@ class SQLiteDB:
         """
         Creates initial schema for the database
         """
-        with open("schema/base.sql", "r", encoding='utf-8') as schema:
+        with open("astrostash/schema/base.sql", "r", encoding='utf-8') as schema:
             self.cursor.executescript(schema.read())
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
