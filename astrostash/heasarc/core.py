@@ -12,7 +12,8 @@ class Heasarc:
     def list_catalogs(self, *,
                       master=False,
                       keywords=None,
-                      refresh_rate=None) -> pd.DataFrame:
+                      refresh_rate=None,
+                      refresh=False) -> pd.DataFrame:
         """
         Gets a DataFrame of all available catalogs in the form of
         (name, description)
@@ -23,8 +24,13 @@ class Heasarc:
         keywords: str or list, keywords used as search terms for catalogs.
                                Words with a str separated by a space
                                are AND'ed, while words in a list are OR'ed
+
         refresh_rate: int or None, default = None,
                       time in days before the query should be refreshed
+
+        refresh: bool, default = False
+                 Toggles call to the heasarc to refresh the table names
+                 response if True
 
         Returns:
         pd.DataFrame, heasarc catalogs and descriptions
@@ -43,7 +49,8 @@ class Heasarc:
                                    dbquery,
                                    params,
                                    refresh_rate,
-                                   idcol="name")
+                                   idcol="name",
+                                   refresh=refresh)
 
     def _check_catalog_exists(self, catalog: str) -> bool:
         """
@@ -59,7 +66,8 @@ class Heasarc:
         return catalog in catalogs
 
     def query_region(self, position=None, catalog=None,
-                     radius=None, refresh_rate=None, **kwargs):
+                     radius=None, refresh_rate=None,
+                     refresh=False, **kwargs):
         """
         Queries a catalog at the heasarc for records around a specific
         region
@@ -76,6 +84,10 @@ class Heasarc:
 
         refresh_rate: int or None, default = None,
                       time in days before the query should be refreshed
+
+        refresh: bool, default = False
+                 Toggles call to the heasarc to refresh the query response
+                 if True
 
         **kwargs: additional kwargs to be passed into
                   astroquery.Heasarc.query_region
@@ -96,4 +108,5 @@ class Heasarc:
                                        dbquery,
                                        params,
                                        refresh_rate,
+                                       refresh=refresh,
                                        **kwargs)

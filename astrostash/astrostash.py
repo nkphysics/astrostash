@@ -170,7 +170,7 @@ class SQLiteDB:
         rid: int, response id from the responses table
         """
         self.cursor.execute(
-            """ INSERT INTO query_response_pivot (
+            """ INSERT OR IGNORE INTO query_response_pivot (
                 queryid,
                 responseid
             )
@@ -248,6 +248,7 @@ class SQLiteDB:
     def fetch_sync(self, query_func, table_name: str,
                    dbquery: str, query_params: dict,
                    refresh_rate: int | None, idcol: str = "obsid",
+                   refresh: bool = False,
                    *args, **kwargs) -> pd.DataFrame:
         """
         Fetches existing data from the user's database if it exists from a
@@ -270,16 +271,20 @@ class SQLiteDB:
         Returns:
         pd.DataFrame, table with the results of the query
         """
+        del query_params["refresh_rate"], query_params["refresh"]
         query_hash = sha256sum(query_params)
         qdf = self.get_query(query_hash)
-        qid = None
-        del query_params["refresh_rate"]
-        if qdf.empty is True:
+        try:
+            qid = int(qdf["id"].iloc[0])
+        except IndexError:
+            qid = None
+        if qdf.empty is True or refresh is True:
             # If there is no query matching the hash then the query
             # has not been requested before, so we need to insert the query
             # hash to get a queryid, and then stash the query results in a
             # new data table
-            qid = self.insert_query(query_hash, refresh_rate)
+            if qid is None:
+                qid = self.insert_query(query_hash, refresh_rate)
             df = query_func(*args,
                             **query_params,
                             **kwargs).to_pandas(index=False)
@@ -293,10 +298,6 @@ class SQLiteDB:
                                  self.conn)
                 df = df[~df[idcol].isin(dd[idcol])]
             self.ingest_table(df, table_name)
-        else:
-            # If a record exists for the query, get the queryid to
-            # use to get the stashed reponse from the astrostash database.
-            qid = int(qdf["id"].iloc[0])
         return pd.read_sql(dbquery,
                            self.conn,
                            params={"queryid": qid})

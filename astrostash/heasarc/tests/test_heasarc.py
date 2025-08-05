@@ -12,6 +12,8 @@ def test_list_catalogs():
     # Next pull from stashed heasarc_catalog_list table
     just1 = heasarc.list_catalogs(keywords="xte", master=True)
     assert len(just1) == 1
+    mrefresh = heasarc.list_catalogs(keywords="xte", refresh=True)
+    assert cat_list_get.equals(mrefresh) is True
     cat_list_stash = heasarc.list_catalogs()
     assert cat_list_get.equals(cat_list_stash) is True
     os.remove("astrostash.db")
