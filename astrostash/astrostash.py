@@ -121,6 +121,22 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def _check_response(self, rhash: str) -> int | None:
+        """
+        Checks to see of the response has already been seen previously
+
+        Parameter:
+        rhash: str, hash of response
+
+        Returns:
+        int or None, id associated with hash that already exists in the
+                     database, None if no record of the response hash exists
+        """
+        self.cursor.execute("""SELECT id FROM responses
+                               WHERE hash = :hash;""",
+                            {"hash": rhash})
+        return self.cursor.fetchone()
+
     def insert_response(self, df: pd.DataFrame) -> int:
         """
         Hashes and then inserts response hash into the responses table
@@ -133,11 +149,16 @@ class SQLiteDB:
         """
         pdhash = pd.util.hash_pandas_object(df).to_dict()
         response_hash = sha256sum(pdhash)
-        self.cursor.execute(
-            """INSERT INTO responses (hash) VALUES (:hash);""",
-            {"hash": response_hash})
-        self.conn.commit()
-        return self.cursor.lastrowid
+        rid = self._check_response(response_hash)
+        if rid is None:
+            self.cursor.execute(
+                """INSERT INTO responses (hash) VALUES (:hash);""",
+                {"hash": response_hash})
+            self.conn.commit()
+            rid = self.cursor.lastrowid
+        else:
+            rid = rid[0]
+        return rid
 
     def insert_query_response_pivot(self, qid: int, rid: int) -> None:
         """
