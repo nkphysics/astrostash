@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS queries (
     id INTEGER PRIMARY KEY,
     hash TEXT NOT NULL,
     last_queried DATE,
-    refresh_rate INTEGER
+    refresh_rate INTEGER,
+    UNIQUE (hash)
 );
 
 CREATE TABLE IF NOT EXISTS responses (
