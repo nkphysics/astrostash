@@ -151,27 +151,21 @@ class SQLiteDB:
                             {"hash": rhash})
         return self.cursor.fetchone()
 
-    def insert_response(self, df: pd.DataFrame) -> int:
+    def insert_response(self, response_hash: str) -> int:
         """
         Hashes and then inserts response hash into the responses table
 
         Parameters:
-        df: pd.DataFrame, table response from server
+        response_hash: str, SHA-256 hash of a response data table
 
         Returns:
         int, id associated with the response after insertion
         """
-        response_hash = make_result_hash(df)
-        rid = self._check_response(response_hash)
-        if rid is None:
-            self.cursor.execute(
-                """INSERT INTO responses (hash) VALUES (:hash);""",
-                {"hash": response_hash})
-            self.conn.commit()
-            rid = self.cursor.lastrowid
-        else:
-            rid = rid[0]
-        return rid
+        self.cursor.execute(
+            """INSERT INTO responses (hash) VALUES (:hash);""",
+            {"hash": response_hash})
+        self.conn.commit()
+        return self.cursor.lastrowid
 
     def insert_query_response_pivot(self, qid: int, rid: int) -> None:
         """
@@ -301,11 +295,14 @@ class SQLiteDB:
             df = query_func(*args,
                             **query_params,
                             **kwargs).to_pandas(index=False)
-            rid = self.insert_response(df)
-            self.insert_query_response_pivot(qid, rid)
+            response_hash = make_result_hash(df)
+            rid = self._check_response(response_hash)
+            if rid is None:
+                rid = self.insert_response(response_hash)
+                self.insert_query_response_pivot(qid, rid)
+                for rowid in df[idcol].values:
+                    self.insert_response_rowid_pivot(rid, rowid)
             ta_exists = self._check_table_exists(table_name)
-            for rowid in df[idcol].values:
-                self.insert_response_rowid_pivot(rid, rowid)
             if ta_exists is True:
                 dd = pd.read_sql(f"SELECT * FROM {table_name};",
                                  self.conn)
