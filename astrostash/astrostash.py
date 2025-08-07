@@ -28,6 +28,20 @@ def sha256sum(query_dict: dict) -> str:
     return hash_obj.hexdigest()
 
 
+def make_result_hash(df: pd.DataFrame) -> str:
+    """
+    Computes a SHA-256 hash of a response
+
+    Parameters:
+    df: pd.DataFrame, response table from an external query
+
+    Returns:
+    str, SHA-256 hash or response dataframe
+    """
+    pdhash = pd.util.hash_pandas_object(df).to_dict()
+    return sha256sum(pdhash)
+
+
 class SQLiteDB:
     def __init__(self, db_name=None):
         db_name = self._get_db_file(db_name)
@@ -147,8 +161,7 @@ class SQLiteDB:
         Returns:
         int, id associated with the response after insertion
         """
-        pdhash = pd.util.hash_pandas_object(df).to_dict()
-        response_hash = sha256sum(pdhash)
+        response_hash = make_result_hash(df)
         rid = self._check_response(response_hash)
         if rid is None:
             self.cursor.execute(
