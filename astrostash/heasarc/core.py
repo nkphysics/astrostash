@@ -98,7 +98,7 @@ class Heasarc:
         params = locals().copy()
         del params["self"]
         if self._check_catalog_exists(catalog):
-            dbquery = f"""SELECT * FROM {catalog} WHERE obsid IN (
+            dbquery = f"""SELECT * FROM {catalog} WHERE __row IN (
                               SELECT rowid FROM response_rowid_pivot rrp
                               INNER JOIN query_response_pivot qrp
                               ON qrp.responseid = rrp.responseid

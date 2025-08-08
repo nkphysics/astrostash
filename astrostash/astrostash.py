@@ -254,7 +254,7 @@ class SQLiteDB:
 
     def fetch_sync(self, query_func, table_name: str,
                    dbquery: str, query_params: dict,
-                   refresh_rate: int | None, idcol: str = "obsid",
+                   refresh_rate: int | None, idcol: str = "__row",
                    refresh: bool = False,
                    *args, **kwargs) -> pd.DataFrame:
         """
