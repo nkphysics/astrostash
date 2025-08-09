@@ -231,6 +231,25 @@ class SQLiteDB:
                      index=False)
         self.conn.commit()
 
+    def update_last_refreshed(self, qid: int) -> int:
+        """
+        Updates an existing query's last_refreshed date
+
+        Parameters:
+        qid: int, query id
+
+        Returns:
+        int, query id which was updated
+        """
+        self.cursor.execute("""UPDATE queries
+                               SET last_refreshed = :last_refreshed
+                               WHERE id = :id""",
+                            {"last_refreshed": datetime.today()
+                                                       .strftime('%Y-%m-%d'),
+                             "id": qid})
+        self.conn.commit()
+        return self.cursor.lastrowid
+
     def update_refresh_rate(self, qid: int, refresh_rate: int | None) -> int:
         """
         Updates an existing query record's refresh rate (days)
@@ -292,6 +311,8 @@ class SQLiteDB:
             # new data table
             if qid is None:
                 qid = self.insert_query(query_hash, refresh_rate)
+            else:
+                self.update_last_refreshed(qid)
             df = query_func(*args,
                             **query_params,
                             **kwargs).to_pandas(index=False)
