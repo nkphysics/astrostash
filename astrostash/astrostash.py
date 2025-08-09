@@ -121,15 +121,15 @@ class SQLiteDB:
         self.cursor.execute("""
             INSERT INTO queries (
                 hash,
-                last_queried,
+                last_refreshed,
                 refresh_rate
             )
             VALUES (
                 :hash,
-                :last_queried,
+                :last_refreshed,
                 :refresh_rate
             );""", {"hash": query_hash,
-                    "last_queried": datetime.today().strftime('%Y-%m-%d'),
+                    "last_refreshed": datetime.today().strftime('%Y-%m-%d'),
                     "refresh_rate": refresh_rate}
             )
         self.conn.commit()

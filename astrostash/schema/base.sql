@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS queries (
     id INTEGER PRIMARY KEY,
     hash TEXT NOT NULL,
-    last_queried DATE,
+    last_refreshed DATE,
     refresh_rate INTEGER,
     UNIQUE (hash)
 );
