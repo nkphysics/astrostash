@@ -67,7 +67,7 @@ class Heasarc:
 
     def query_region(self, position=None, catalog=None,
                      radius=None, refresh_rate=None,
-                     refresh=False, **kwargs):
+                     refresh=False, **kwargs) -> pd.DataFrame:
         """
         Queries a catalog at the heasarc for records around a specific
         region
@@ -110,3 +110,36 @@ class Heasarc:
                                        refresh_rate,
                                        refresh=refresh,
                                        **kwargs)
+
+    def query_object(self, object_name, catalog=None,
+                     radius=None, refresh_rate=None,
+                     refresh=False, **kwargs) -> pd.DataFrame:
+        """
+        Queries a catalog at the heasarc for records around a specific
+        object/source
+
+        Parameters:
+        object_name: str, object name (e.x. PSR B0531+21)
+
+        catalog: str, optional, catalog name as listed at the heasarc
+
+        radius: str or `~astropy.units.Quantity`, optional
+                search radius
+
+        refresh_rate: int or None, default = None, optional,
+                      time in days before the query should be refreshed
+
+        refresh: bool, default = False, optional
+                 Toggles call to the heasarc to refresh the query response
+                 if True
+
+        Returns:
+        pd.DataFrame, table of catalog's records for the specified object
+        """
+        pos = SkyCoord.from_name(object_name)
+        return self.query_region(position=pos,
+                                 catalog=catalog,
+                                 radius=radius,
+                                 refresh_rate=refresh_rate,
+                                 refresh=refresh,
+                                 **kwargs)

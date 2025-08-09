@@ -28,3 +28,10 @@ def test_query_region():
     ngc_table = heasarc.query_region(position=pos, catalog='numaster')
     assert heasarc.ldb._check_table_exists("numaster") is True
     os.remove("astrostash.db")
+
+
+def test_query_object():
+    heasarc = Heasarc()
+    crab_table = heasarc.query_object("crab", catalog="nicermastr")
+    assert heasarc.ldb._check_table_exists("nicermastr") is True
+    os.remove("astrostash.db")
