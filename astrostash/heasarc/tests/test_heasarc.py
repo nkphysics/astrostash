@@ -35,3 +35,10 @@ def test_query_object():
     crab_table = heasarc.query_object("crab", catalog="nicermastr")
     assert heasarc.ldb._check_table_exists("nicermastr") is True
     os.remove("astrostash.db")
+
+
+def test_query_tap():
+    heasarc = Heasarc()
+    table = heasarc.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
+    assert heasarc.ldb._check_table_exists("uhuru4") is True
+    os.remove("astrostash.db")

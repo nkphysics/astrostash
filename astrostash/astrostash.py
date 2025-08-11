@@ -313,9 +313,14 @@ class SQLiteDB:
                 qid = self.insert_query(query_hash, refresh_rate)
             else:
                 self.update_last_refreshed(qid)
-            df = query_func(*args,
-                            **query_params,
-                            **kwargs).to_pandas(index=False)
+            try:
+                df = query_func(*args,
+                                **query_params,
+                                **kwargs).to_pandas(index=False)
+            except AttributeError:
+                df = query_func(*args,
+                                **query_params,
+                                **kwargs).to_table().to_pandas(index=False)
             response_hash = make_result_hash(df)
             rid = self._check_response(response_hash)
             if rid is None:

@@ -143,3 +143,35 @@ class Heasarc:
                                  refresh_rate=refresh_rate,
                                  refresh=refresh,
                                  **kwargs)
+
+    def query_tap(self, query: str, catalog: str, maxrec=None,
+                  refresh_rate=None, refresh=False) -> pd.DataFrame:
+        """
+        Queries the HEASARC's Xamin TAP using ADQL
+
+        Parameters:
+        query: str, ADQL query
+
+        catalog: str, catalog table name to stash the data to
+
+        maxrec : int or None (default), optional,
+                 maximum number of records to return
+
+        Returns:
+        pd.DataFrame, response from HEASARC for the ADQL query
+        """
+        params = locals().copy()
+        del params["self"]
+        if self._check_catalog_exists(catalog):
+            dbquery = f"""SELECT * FROM {catalog} WHERE __row IN (
+                              SELECT rowid FROM response_rowid_pivot rrp
+                              INNER JOIN query_response_pivot qrp
+                              ON qrp.responseid = rrp.responseid
+                              WHERE qrp.queryid = :queryid);"""
+            del params["catalog"]
+            return self.ldb.fetch_sync(self.aq.query_tap,
+                                       catalog,
+                                       dbquery,
+                                       params,
+                                       refresh_rate,
+                                       refresh=refresh)
