@@ -330,9 +330,10 @@ class SQLiteDB:
                     self.insert_response_rowid_pivot(rid, rowid)
             ta_exists = self._check_table_exists(table_name)
             if ta_exists is True:
-                dd = pd.read_sql(f"SELECT * FROM {table_name};",
-                                 self.conn)
-                df = df[~df[idcol].isin(dd[idcol])]
+                dd1 = pd.read_sql(f"SELECT * FROM {table_name};",
+                                  self.conn)
+                dd2 = pd.merge(df, dd1, how="left", indicator=True)
+                df = dd2[dd2["_merge"] == "left_only"].drop(columns="_merge")
             self.ingest_table(df, table_name)
         return pd.read_sql(dbquery,
                            self.conn,

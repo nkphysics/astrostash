@@ -1,4 +1,3 @@
-import pytest
 import astrostash
 import os
 import pathlib as pl
