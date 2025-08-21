@@ -35,6 +35,8 @@ def test_query_object():
     crab_table = heasarc.query_object("crab", catalog="nicermastr")
     assert heasarc.ldb._check_table_exists("nicermastr") is True
     os.remove("astrostash.db")
+    conflictdb = "astrostash/heasarc/tests/data/processed-conflict.db"
+    heasarc2 = Heasarc(db_name=conflictdb)
 
 
 def test_query_tap():
