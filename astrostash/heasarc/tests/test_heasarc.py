@@ -1,6 +1,14 @@
 from astrostash.heasarc import Heasarc
 from astropy.coordinates import SkyCoord
 import os
+import shutil
+import pytest
+
+
+@pytest.fixture
+def cleanup_copies():
+    yield
+    os.remove("astrostash/heasarc/tests/data/processed-conflict-copy.db")
 
 
 def test_list_catalogs():
@@ -30,14 +38,21 @@ def test_query_region():
     os.remove("astrostash.db")
 
 
-def test_query_object():
+def test_query_object(cleanup_copies):
     heasarc = Heasarc()
     crab_table = heasarc.query_object("crab", catalog="nicermastr")
     assert heasarc.ldb._check_table_exists("nicermastr") is True
     os.remove("astrostash.db")
-    conflictdb = "astrostash/heasarc/tests/data/processed-conflict.db"
-    heasarc2 = Heasarc(db_name=conflictdb)
-
+    dbroot = "astrostash/heasarc/tests/data"
+    db = f"{dbroot}/processed-conflict.db"
+    dbcopy = f"{dbroot}/processed-conflict-copy.db"
+    shutil.copy(db, dbcopy)
+    heasarc2 = Heasarc(db_name=dbcopy)
+    crab_refresh = heasarc2.query_object(
+        "crab", catalog="nicermastr", refresh=True
+        )
+    changed_row = crab_refresh.loc[crab_refresh["__row"] == "43561"]
+    assert len(changed_row) == 1
 
 def test_query_tap():
     heasarc = Heasarc()
