@@ -212,6 +212,27 @@ class SQLiteDB:
             {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
+    def delete_table_row(self, tablename: str,
+                         idcol: str, rowid: str) -> None:
+        """
+        Deletes a row from a specified table (tablename arg), with the user
+        specified rowid.
+
+        Parameters:
+        tablename: str, name of data table or catalog the row to be deleted
+                        exists in
+
+        idcol: str, column in the specified datatable containing rowid
+                    information
+
+        rowid: str, id that exists in the specified idcol for the row to be
+                    deleted
+        """
+        if self._check_table_exists() is True:
+            self.cursor.execute(f""" DELETE FROM {tablename}
+                                     WHERE {idcol} = {rowid};""")
+        self.conn.commit()
+
     def ingest_table(self, table, name, if_exists="append") -> None:
         """
         Ingests the queried response table into the database with the option
@@ -334,6 +355,7 @@ class SQLiteDB:
                                   self.conn)
                 dd2 = pd.merge(df, dd1, how="left", indicator=True)
                 df = dd2[dd2["_merge"] == "left_only"].drop(columns="_merge")
+                print(df)
             self.ingest_table(df, table_name)
         return pd.read_sql(dbquery,
                            self.conn,
