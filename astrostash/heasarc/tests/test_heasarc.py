@@ -53,6 +53,7 @@ def test_query_object(cleanup_copies):
         )
     changed_row = crab_refresh.loc[crab_refresh["__row"] == "43561"]
     assert len(changed_row) == 1
+    assert changed_row.at[187, "processing_status"] == "VALIDATED"
 
 def test_query_tap():
     heasarc = Heasarc()

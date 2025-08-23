@@ -212,14 +212,14 @@ class SQLiteDB:
             {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
-    def delete_table_row(self, tablename: str,
+    def delete_table_row(self, table_name: str,
                          idcol: str, rowid: str) -> None:
         """
-        Deletes a row from a specified table (tablename arg), with the user
+        Deletes a row from a specified table (table_name arg), with the user
         specified rowid.
 
         Parameters:
-        tablename: str, name of data table or catalog the row to be deleted
+        tabl_ename: str, name of data table or catalog the row to be deleted
                         exists in
 
         idcol: str, column in the specified datatable containing rowid
@@ -228,8 +228,8 @@ class SQLiteDB:
         rowid: str, id that exists in the specified idcol for the row to be
                     deleted
         """
-        if self._check_table_exists() is True:
-            self.cursor.execute(f""" DELETE FROM {tablename}
+        if self._check_table_exists(table_name) is True:
+            self.cursor.execute(f""" DELETE FROM {table_name}
                                      WHERE {idcol} = {rowid};""")
         self.conn.commit()
 
@@ -355,7 +355,10 @@ class SQLiteDB:
                                   self.conn)
                 dd2 = pd.merge(df, dd1, how="left", indicator=True)
                 df = dd2[dd2["_merge"] == "left_only"].drop(columns="_merge")
-                print(df)
+                changed_rows = df.index.to_list()
+                for index in changed_rows:
+                    rowid = df.at[index, idcol]
+                    self.delete_table_row(table_name, idcol, rowid)
             self.ingest_table(df, table_name)
         return pd.read_sql(dbquery,
                            self.conn,
