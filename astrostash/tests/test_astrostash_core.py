@@ -1,6 +1,7 @@
 import astrostash
 import os
 import pathlib as pl
+from datetime import datetime
 
 
 def test_sha256sum():
@@ -9,6 +10,12 @@ def test_sha256sum():
         "catalog": "xtemaster"
         }
     astrostash.sha256sum(query_params)
+
+
+def test_need_refresh():
+    assert astrostash.needs_refresh("2020-01-01", 5) is True
+    d2 = datetime.today().strftime('%Y-%m-%d')
+    assert astrostash.needs_refresh(d2, 5) is False
 
 
 def test_SQLiteDB():

@@ -42,6 +42,27 @@ def make_result_hash(df: pd.DataFrame) -> str:
     return sha256sum(pdhash)
 
 
+def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
+    """
+    Determins a if a refresh is needed based off of the set refresh rate and
+    the last refresh date
+
+    Parameters:
+    last_refreshed: str, date of last refresh in format YYYY-MM-DD
+
+    refresh_rate: int, number of days before a refresh in needed
+
+    Returns:
+    bool, True if refresh is needed, False if not
+    """
+    need = False
+    today = datetime.today().date()
+    last = datetime.strptime(last_refreshed, '%Y-%m-%d').date()
+    if (today - last).days >= refresh_rate:
+        need = True
+    return need
+
+
 class SQLiteDB:
     def __init__(self, db_name=None):
         db_name = self._get_db_file(db_name)
