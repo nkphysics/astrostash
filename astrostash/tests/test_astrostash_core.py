@@ -24,6 +24,13 @@ def test_SQLiteDB():
     assert id1 == 1
     # Test getting query that already exists
     assert sql1.get_query(qp_hash).hash[0] == qp_hash
+    refresh_rate1 = sql1.get_refresh_rate(id1)
+    assert refresh_rate1 == 14
+    refresh_rate1 = sql1.get_refresh_rate(2)
+    assert refresh_rate1 is None
+    qp["catalog"] = "xtemaster"
+    qp_hash2 = astrostash.sha256sum(qp)
+    id2 = sql1.insert_query(qp_hash2, None)
     sql1.close()
     os.remove("astrostash.db")
     sql2 = astrostash.SQLiteDB(db_name="astrostash/tests/astrostash_test.db")

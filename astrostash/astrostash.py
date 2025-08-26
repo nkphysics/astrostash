@@ -89,6 +89,26 @@ class SQLiteDB:
                                params={"query_hash": query_hash})
         return stashref
 
+    def get_refresh_rate(self, qid: int) -> int | None:
+        """
+        Gets the refresh rate (in days) associated with a query id (if exists)
+        If no refresh rate exists returns None
+
+        Parameters:
+        qid: int, id associated with a unique query
+
+        Returns:
+        int, refresh rate in days or None if no refresh rate exists
+        """
+        self.cursor.execute("""SELECT refresh_rate FROM queries
+                               WHERE id = :qid;""",
+                            {"qid": qid})
+        refresh_rate = self.cursor.fetchone()
+        try:
+            return refresh_rate[0]
+        except TypeError:
+            return refresh_rate
+
     def _check_table_exists(self, name: str) -> bool:
         """
         Checks to ensure that a user specified table exists in the database
