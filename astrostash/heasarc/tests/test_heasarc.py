@@ -35,6 +35,11 @@ def test_query_region():
     pos = SkyCoord.from_name('ngc 3783')
     ngc_table = heasarc.query_region(position=pos, catalog='numaster')
     assert heasarc.ldb._check_table_exists("numaster") is True
+    ngc_table = heasarc.query_region(
+        position=pos,
+        catalog='numaster',
+        refresh_rate=30)
+    assert heasarc.ldb.get_refresh_rate(2) == 30
     os.remove("astrostash.db")
 
 
@@ -49,7 +54,7 @@ def test_query_object(cleanup_copies):
     shutil.copy(db, dbcopy)
     heasarc2 = Heasarc(db_name=dbcopy)
     crab_refresh = heasarc2.query_object(
-        "crab", catalog="nicermastr", refresh=True
+        "crab", catalog="nicermastr", refresh_rate=2
         )
     changed_row = crab_refresh.loc[crab_refresh["__row"] == "43561"]
     assert len(changed_row) == 1
