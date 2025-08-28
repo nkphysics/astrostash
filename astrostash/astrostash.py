@@ -364,6 +364,10 @@ class SQLiteDB:
         qdf = self.get_query(query_hash)
         try:
             qid = int(qdf["id"].iloc[0])
+            q_refresh_rate = self.get_refresh_rate(qid)
+            last_refresh_date = qdf["last_refreshed"].iloc[0]
+            if q_refresh_rate is not None and refresh is not True:
+                refresh = needs_refresh(last_refresh_date, q_refresh_rate)
         except IndexError:
             qid = None
         if qdf.empty is True or refresh is True:
