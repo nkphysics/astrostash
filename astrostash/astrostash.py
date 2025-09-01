@@ -289,8 +289,12 @@ class SQLiteDB:
                     deleted
         """
         if self._check_table_exists(table_name) is True:
-            self.cursor.execute(f""" DELETE FROM {table_name}
-                                     WHERE {idcol} = {rowid};""")
+            columns = self.get_columns(table_name)
+            if idcol in columns:
+                self.cursor.execute(
+                    f"DELETE FROM {table_name} WHERE {idcol} = :rowid;",
+                    {"rowid": rowid}
+                )
         self.conn.commit()
 
     def ingest_table(self, table, name, if_exists="append") -> None:
