@@ -2,6 +2,7 @@ import astrostash
 import os
 import pathlib as pl
 from datetime import datetime
+import pytest
 
 
 def test_sha256sum():
@@ -31,6 +32,11 @@ def test_SQLiteDB():
     assert id1 == 1
     # Test getting query that already exists
     assert sql1.get_query(qp_hash).hash[0] == qp_hash
+    queries_columns = sql1.get_columns("queries")
+    expected_queries_columns = ['id', 'hash', 'last_refreshed', 'refresh_rate']
+    assert queries_columns == expected_queries_columns
+    with pytest.raises(ValueError):
+        bad_table_name = sql1.get_columns("xxx")
     refresh_rate1 = sql1.get_refresh_rate(id1)
     assert refresh_rate1 == 14
     refresh_rate1 = sql1.get_refresh_rate(2)

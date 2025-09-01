@@ -65,8 +65,8 @@ def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
 
 class SQLiteDB:
     def __init__(self, db_name=None):
-        db_name = self._get_db_file(db_name)
-        self.conn = sqlite3.connect(db_name)
+        self.db_name = self._get_db_file(db_name)
+        self.conn = sqlite3.connect(self.db_name)
         self.cursor = self.conn.cursor()
         self._create_schema()
 
@@ -145,6 +145,25 @@ class SQLiteDB:
                                name = :name LIMIT 1;""",
                             {"name": name})
         return self.cursor.fetchone() is not None
+
+    def get_columns(self, tablename: str) -> list:
+        """
+        Gets all the column names for a specified table
+
+        Parameters:
+        tablename: str, name of table to get the columns from
+
+        Returns:
+        list, names of all columns from the specified table
+        """
+        if self._check_table_exists(tablename):
+            self.cursor.execute(
+                "SELECT name FROM pragma_table_info(:tablename);",
+                {"tablename": tablename}
+                )
+            return [i[0] for i in self.cursor.fetchall()]
+        else:
+            raise ValueError(f"{tablename} does not exist in {self.db_name}")
 
     def insert_query(self, query_hash: str, refresh_rate: int | None) -> int:
         """
