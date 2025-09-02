@@ -295,7 +295,9 @@ class SQLiteDB:
                     f"DELETE FROM {table_name} WHERE {idcol} = :rowid;",
                     {"rowid": rowid}
                 )
-        self.conn.commit()
+            self.conn.commit()
+        else:
+            raise ValueError(f"{table_name} does not exist")
 
     def ingest_table(self, table, name, if_exists="append") -> None:
         """

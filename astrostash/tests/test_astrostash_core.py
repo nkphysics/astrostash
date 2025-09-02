@@ -37,6 +37,10 @@ def test_SQLiteDB():
     assert queries_columns == expected_queries_columns
     with pytest.raises(ValueError):
         bad_table_name = sql1.get_columns("xxx")
+        sql1.delete_table_row("queries; DROP TABLE nicermastr", "__row", 2)
+        sql1.delete_table_row("nicermastr", "__row ; DROP TABLE queries", 2)
+    assert sql1._check_table_exists("nicermastr") is True
+    assert sql1._check_table_exists("queries") is True
     refresh_rate1 = sql1.get_refresh_rate(id1)
     assert refresh_rate1 == 14
     refresh_rate1 = sql1.get_refresh_rate(2)
