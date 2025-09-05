@@ -1,6 +1,7 @@
 import pathlib as pl
 import os
 import sqlite3
+from sqlalchemy import create_engine
 import pandas as pd
 import time
 from datetime import datetime
@@ -67,6 +68,7 @@ class SQLiteDB:
     def __init__(self, db_name=None):
         self.db_name = self._get_db_file(db_name)
         self.conn = sqlite3.connect(self.db_name)
+        self.aconn = create_engine(f"sqlite:///{self.db_name}")
         self.cursor = self.conn.cursor()
         self._create_schema()
 
@@ -424,8 +426,7 @@ class SQLiteDB:
                     self.insert_response_rowid_pivot(rid, rowid)
             ta_exists = self._check_table_exists(table_name)
             if ta_exists is True:
-                dd1 = pd.read_sql(f"SELECT * FROM {table_name};",
-                                  self.conn)
+                dd1 = pd.read_sql_table(table_name, self.aconn)
                 dd2 = pd.merge(df, dd1, how="left", indicator=True)
                 df = dd2[dd2["_merge"] == "left_only"].drop(columns="_merge")
                 changed_rows = df.index.to_list()
