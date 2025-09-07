@@ -1,9 +1,7 @@
 import pathlib as pl
-import os
 import sqlite3
 from sqlalchemy import create_engine
 import pandas as pd
-import time
 from datetime import datetime
 import hashlib
 import json
@@ -274,33 +272,6 @@ class SQLiteDB:
             {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
-    def delete_table_row(self, table_name: str,
-                         idcol: str, rowid: str) -> None:
-        """
-        Deletes a row from a specified table (table_name arg), with the user
-        specified rowid.
-
-        Parameters:
-        tabl_ename: str, name of data table or catalog the row to be deleted
-                        exists in
-
-        idcol: str, column in the specified datatable containing rowid
-                    information
-
-        rowid: str, id that exists in the specified idcol for the row to be
-                    deleted
-        """
-        if self._check_table_exists(table_name) is True:
-            columns = self.get_columns(table_name)
-            if idcol in columns:
-                self.cursor.execute(
-                    f"DELETE FROM {table_name} WHERE {idcol} = :rowid;",
-                    {"rowid": rowid}
-                )
-            self.conn.commit()
-        else:
-            raise ValueError(f"{table_name} does not exist")
-
     def ingest_table(self, table, name, if_exists="append") -> None:
         """
         Ingests the queried response table into the database with the option
@@ -428,12 +399,20 @@ class SQLiteDB:
             if ta_exists is True:
                 dd1 = pd.read_sql_table(table_name, self.aconn)
                 dd2 = pd.merge(df, dd1, how="left", indicator=True)
-                df = dd2[dd2["_merge"] == "left_only"].drop(columns="_merge")
-                changed_rows = df.index.to_list()
-                for index in changed_rows:
-                    rowid = df.at[index, idcol]
-                    self.delete_table_row(table_name, idcol, rowid)
-            self.ingest_table(df, table_name)
+                changes = dd2[
+                    dd2["_merge"] == "left_only"
+                    ].drop(columns="_merge")
+                if len(changes) > 0:
+                    idxs = dd1[dd1[idcol].isin(changes[idcol])].index[0]
+                    dd1 = dd1.drop(idxs)
+                    updated_table = pd.merge(dd1, df, how="outer")
+                    self.ingest_table(updated_table,
+                                      table_name,
+                                      if_exists="replace")
+                else:
+                    self.ingest_table(changes, table_name)
+            else:
+                self.ingest_table(df, table_name)
         return pd.read_sql(dbquery,
                            self.conn,
                            params={"queryid": qid})

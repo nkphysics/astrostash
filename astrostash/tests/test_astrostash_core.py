@@ -36,11 +36,7 @@ def test_SQLiteDB():
     expected_queries_columns = ['id', 'hash', 'last_refreshed', 'refresh_rate']
     assert queries_columns == expected_queries_columns
     with pytest.raises(ValueError):
-        bad_table_name = sql1.get_columns("xxx")
-    with pytest.raises(ValueError):
-        sql1.delete_table_row("queries; DROP TABLE nicermastr", "__row", 2)
-    with pytest.raises(ValueError):
-        sql1.delete_table_row("nicermastr", "__row ; DROP TABLE queries", 2)
+        sql1.get_columns("xxx")
     assert sql1._check_table_exists("nicermastr") is False
     assert sql1._check_table_exists("queries") is True
     refresh_rate1 = sql1.get_refresh_rate(id1)
@@ -49,7 +45,7 @@ def test_SQLiteDB():
     assert refresh_rate1 is None
     qp["catalog"] = "xtemaster"
     qp_hash2 = astrostash.sha256sum(qp)
-    id2 = sql1.insert_query(qp_hash2, None)
+    sql1.insert_query(qp_hash2, None)
     sql1.close()
     os.remove("astrostash.db")
     sql2 = astrostash.SQLiteDB(db_name="astrostash/tests/astrostash_test.db")
