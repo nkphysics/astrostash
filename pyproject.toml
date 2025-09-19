@@ -4,8 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astrostash"
-version = "0.0.1"
-description = ""
+version = "0.1.0"
+description = "An astronomy/astrophysics database building and syncing library"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 authors = [
   {name = "Nicholas Kuechel", email = "njkuechel@protonmail.com" }
 ]
