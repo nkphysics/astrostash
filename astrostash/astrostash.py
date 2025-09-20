@@ -403,8 +403,10 @@ class SQLiteDB:
                     dd2["_merge"] == "left_only"
                     ].drop(columns="_merge")
                 if len(changes) > 0:
-                    idxs = dd1[dd1[idcol].isin(changes[idcol])].index[0]
-                    dd1 = dd1.drop(idxs)
+                    diffs = dd1[dd1[idcol].isin(changes[idcol])]
+                    if len(diffs) > 0:
+                        idxs = diffs.index[0]
+                        dd1 = dd1.drop(idxs)
                     updated_table = pd.merge(dd1, df, how="outer")
                     self.ingest_table(updated_table,
                                       table_name,
