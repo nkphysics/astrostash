@@ -195,7 +195,7 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def _check_response(self, rhash: str) -> int | None:
+    def _get_response_id(self, rhash: str) -> int | None:
         """
         Checks to see of the response has already been seen previously
 
@@ -389,7 +389,7 @@ class SQLiteDB:
                                 **query_params,
                                 **kwargs).to_table().to_pandas(index=False)
             response_hash = make_result_hash(df)
-            rid = self._check_response(response_hash)
+            rid = self._get_response_id(response_hash)
             if rid is None:
                 rid = self.insert_response(response_hash)
                 self.insert_query_response_pivot(qid, rid)
