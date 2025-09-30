@@ -415,6 +415,8 @@ class SQLiteDB:
                 self.insert_query_response_pivot(qid, rid)
                 for rowid in df[idcol].values:
                     self.insert_response_rowid_pivot(rid, rowid)
+            elif self._check_query_response_link(qid, rid[0]) == 0:
+                self.insert_query_response_pivot(qid, rid[0])
             ta_exists = self._check_table_exists(table_name)
             if ta_exists is True:
                 dd1 = pd.read_sql_table(table_name, self.aconn)
