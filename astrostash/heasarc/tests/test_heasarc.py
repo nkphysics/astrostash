@@ -18,6 +18,7 @@ def test_list_catalogs():
     assert "nicermastr" in cat_list_get["name"].values
     assert heasarc._check_catalog_exists("xtemaster") is True
     assert heasarc.ldb._check_table_exists("heasarc_catalog_list") is True
+    assert heasarc.ldb._check_query_response_link(1, 1) != 0
     # Next pull from stashed heasarc_catalog_list table
     just1 = heasarc.list_catalogs(keywords="xte", master=True)
     assert len(just1) == 1
@@ -47,8 +48,10 @@ def test_query_region():
 
 def test_query_object(cleanup_copies):
     heasarc = Heasarc()
-    heasarc.query_object("crab", catalog="nicermastr")
+    init_query = heasarc.query_object("crab", catalog="nicermastr")
     assert heasarc.ldb._check_table_exists("nicermastr") is True
+    alias_query = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
+    pd.testing.assert_frame_equal(init_query, alias_query)
     os.remove("astrostash.db")
     dbroot = "astrostash/heasarc/tests/data"
     db = f"{dbroot}/processed-conflict.db"

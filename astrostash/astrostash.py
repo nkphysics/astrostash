@@ -248,6 +248,26 @@ class SQLiteDB:
             {"qid": qid, "rid": rid})
         self.conn.commit()
 
+    def _check_query_response_link(self, qid: int, rid: int) -> int:
+        """
+        Checks the existance of a link between a query and response id
+
+        Parameters:
+        qid: int, query id
+
+        rid: int, response id
+
+        Returns:
+        int, 1 if exists 0 if it does not exist
+        """
+        self.cursor.execute(
+            """SELECT EXISTS(
+                SELECT 1 FROM query_response_pivot
+                WHERE queryid = :qid AND responseid = :rid
+            );""",
+            {"qid": qid, "rid": rid})
+        return self.cursor.fetchone()[0]
+
     def insert_response_rowid_pivot(self,
                                     responseid: int,
                                     rowid: str) -> None:
