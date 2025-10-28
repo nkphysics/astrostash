@@ -6,6 +6,7 @@ from datetime import datetime
 import hashlib
 import json
 import astropy
+from importlib.resources import files
 
 
 def sha256sum(query_dict: dict) -> str:
@@ -86,12 +87,8 @@ class SQLiteDB:
         """
         Creates initial schema for the database
         """
-        with open(
-            "astrostash/schema/base.sql",
-            "r",
-            encoding='utf-8'
-        ) as schema:
-            self.cursor.executescript(schema.read())
+        schema = files('astrostash.schema').joinpath('base.sql').read_text()
+        self.cursor.executescript(schema)
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
         """
