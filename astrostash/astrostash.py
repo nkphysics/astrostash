@@ -348,6 +348,42 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def _stash_table(self, df: pd.DataFrame,
+                     table_name: str, idcol: str) -> None:
+        """
+        Merges the results of a query into a the designated table in
+        the database (if exists), or creates a new table and ingests the new
+        data
+
+        Parameters
+        ----------
+        df: pd.DataFrame, frame with response data from a query
+
+        table_name: str, name of the table/catlog in the database
+
+        idcol: str, column name of the column to be used for id info
+        """
+        ta_exists = self._check_table_exists(table_name)
+        if ta_exists is True:
+            dd1 = pd.read_sql_table(table_name, self.aconn)
+            dd2 = pd.merge(df, dd1, how="left", indicator=True)
+            changes = dd2[
+                dd2["_merge"] == "left_only"
+                ].drop(columns="_merge")
+            if len(changes) > 0:
+                diffs = dd1[dd1[idcol].isin(changes[idcol])]
+                if len(diffs) > 0:
+                    idxs = diffs.index[0]
+                    dd1 = dd1.drop(idxs)
+                updated_table = pd.merge(dd1, df, how="outer")
+                self.ingest_table(updated_table,
+                                  table_name,
+                                  if_exists="replace")
+            else:
+                self.ingest_table(changes, table_name)
+        else:
+            self.ingest_table(df, table_name)
+
     def fetch_sync(self, query_func, table_name: str,
                    dbquery: str, query_params: dict,
                    refresh_rate: int | None, idcol: str = "__row",
@@ -414,26 +450,8 @@ class SQLiteDB:
                     self.insert_response_rowid_pivot(rid, rowid)
             elif self._check_query_response_link(qid, rid[0]) == 0:
                 self.insert_query_response_pivot(qid, rid[0])
-            ta_exists = self._check_table_exists(table_name)
-            if ta_exists is True:
-                dd1 = pd.read_sql_table(table_name, self.aconn)
-                dd2 = pd.merge(df, dd1, how="left", indicator=True)
-                changes = dd2[
-                    dd2["_merge"] == "left_only"
-                    ].drop(columns="_merge")
-                if len(changes) > 0:
-                    diffs = dd1[dd1[idcol].isin(changes[idcol])]
-                    if len(diffs) > 0:
-                        idxs = diffs.index[0]
-                        dd1 = dd1.drop(idxs)
-                    updated_table = pd.merge(dd1, df, how="outer")
-                    self.ingest_table(updated_table,
-                                      table_name,
-                                      if_exists="replace")
-                else:
-                    self.ingest_table(changes, table_name)
-            else:
-                self.ingest_table(df, table_name)
+            # Stash the the external response in the database
+            self._stash_table(df, table_name, idcol)
         return pd.read_sql(dbquery,
                            self.conn,
                            params={"queryid": qid})
