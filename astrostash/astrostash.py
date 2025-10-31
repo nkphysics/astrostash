@@ -289,6 +289,30 @@ class SQLiteDB:
             {"responseid": responseid, "rowid": rowid})
         self.conn.commit()
 
+    def _ingest_response_and_links(self, df: pd.DataFrame, qid: int,
+                                   idcol: str) -> None:
+        """
+        Ingests response info and links between response and rowid's in other
+        tables in the database
+
+        Parameters
+        ----------
+        df: pd.DataFrame, response table
+
+        qid: int, query id
+
+        idcol: str, name of id column from response table
+        """
+        response_hash = make_result_hash(df)
+        rid = self._get_response_id(response_hash)
+        if rid is None:
+            rid = self.insert_response(response_hash)
+            self.insert_query_response_pivot(qid, rid)
+            for rowid in df[idcol].values:
+                self.insert_response_rowid_pivot(rid, rowid)
+        elif self._check_query_response_link(qid, rid[0]) == 0:
+            self.insert_query_response_pivot(qid, rid[0])
+
     def ingest_table(self, table, name, if_exists="append") -> None:
         """
         Ingests the queried response table into the database with the option
@@ -462,15 +486,7 @@ class SQLiteDB:
                 df = query_func(*args,
                                 **query_params,
                                 **kwargs).to_table().to_pandas(index=False)
-            response_hash = make_result_hash(df)
-            rid = self._get_response_id(response_hash)
-            if rid is None:
-                rid = self.insert_response(response_hash)
-                self.insert_query_response_pivot(qid, rid)
-                for rowid in df[idcol].values:
-                    self.insert_response_rowid_pivot(rid, rowid)
-            elif self._check_query_response_link(qid, rid[0]) == 0:
-                self.insert_query_response_pivot(qid, rid[0])
+            self._ingest_response_and_links(df, qid, idcol)
             # Stash the the external response in the database
             self._stash_table(df, table_name, idcol)
         return pd.read_sql(dbquery,
