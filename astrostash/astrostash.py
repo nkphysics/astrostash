@@ -348,6 +348,37 @@ class SQLiteDB:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def _get_queryid(self, qdf: pd.DataFrame, refresh: bool,
+                     refresh_rate: int | None) -> tuple:
+        """
+        Gets query id from given query information and determines if refresh
+        (t/f) is warrented
+
+        Parameters
+        ----------
+        qdf: pd.DataFrame, info for the query (if record exists)
+                           empty DataFrame if not queryied before
+
+        refresh: bool, True if refresh toggled on
+
+        refresh_rate: int or None, number of days before refresh is needed
+
+        Returns:
+        int, (query id, refresh state)
+        """
+        try:
+            qid = int(qdf["id"].iloc[0])
+            q_refresh_rate = self.get_refresh_rate(qid)
+            if refresh_rate is not None and refresh_rate != q_refresh_rate:
+                q_refresh_rate = refresh_rate
+                self.update_refresh_rate(qid, refresh_rate)
+            last_refresh_date = qdf["last_refreshed"].iloc[0]
+            if q_refresh_rate is not None and refresh is not True:
+                refresh = needs_refresh(last_refresh_date, q_refresh_rate)
+        except IndexError:
+            qid = None
+        return qid, refresh
+
     def _stash_table(self, df: pd.DataFrame,
                      table_name: str, idcol: str) -> None:
         """
@@ -413,17 +444,7 @@ class SQLiteDB:
         del query_params["refresh_rate"], query_params["refresh"]
         query_hash = sha256sum(query_params)
         qdf = self.get_query(query_hash)
-        try:
-            qid = int(qdf["id"].iloc[0])
-            q_refresh_rate = self.get_refresh_rate(qid)
-            if refresh_rate is not None and refresh_rate != q_refresh_rate:
-                q_refresh_rate = refresh_rate
-                self.update_refresh_rate(qid, refresh_rate)
-            last_refresh_date = qdf["last_refreshed"].iloc[0]
-            if q_refresh_rate is not None and refresh is not True:
-                refresh = needs_refresh(last_refresh_date, q_refresh_rate)
-        except IndexError:
-            qid = None
+        qid, refresh = self._get_queryid(qdf, refresh, refresh_rate)
         if qdf.empty is True or refresh is True:
             # If there is no query matching the hash then the query
             # has not been requested before, so we need to insert the query
