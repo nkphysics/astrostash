@@ -31,7 +31,7 @@ python >= 3.10
 
 ## 🚧 Current State
 
-**Version**: `v0.1.0`  
+**Version**: `v0.1.1`
 **Status**: Alpha
 
 **Supported Archives**: 
@@ -46,4 +46,6 @@ python >= 3.10
 
 2. Run `python -m pip install .`
 
-**Standard and Wheel dists + PyPI COMING SOON**
+OR
+
+Run `pip install astrostash`
