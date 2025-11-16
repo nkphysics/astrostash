@@ -61,9 +61,12 @@ def test_query_object(cleanup_copies):
     crab_refresh = heasarc2.query_object(
         "crab", catalog="nicermastr", refresh_rate=2
         )
-    changed_row = crab_refresh.loc[crab_refresh["__row"] == "43561"]
+    assert len(alias_query) == len(crab_refresh)
+    changed_row = crab_refresh.loc[
+        crab_refresh["__row"] == "43561"
+        ].reset_index(drop=True)
     assert len(changed_row) == 1
-    assert changed_row.at[187, "processing_status"] == "VALIDATED"
+    assert changed_row.at[0, "processing_status"] == "VALIDATED"
     # Test pull existing data
     aql_x1 = heasarc2.query_object("AQL X-1", catalog="nicermastr")
     assert len(aql_x1) == 302

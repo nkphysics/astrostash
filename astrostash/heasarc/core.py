@@ -37,16 +37,8 @@ class Heasarc:
         """
         params = locals().copy()
         del params["self"]
-        dbquery = """SELECT name, description FROM heasarc_catalog_list
-                     WHERE name IN (
-                         SELECT rowid FROM response_rowid_pivot rrp
-                         INNER JOIN query_response_pivot qrp
-                         ON qrp.responseid = rrp.responseid
-                         WHERE queryid = :queryid
-                     );"""
         return self.ldb.fetch_sync(self.aq.list_catalogs,
                                    "heasarc_catalog_list",
-                                   dbquery,
                                    params,
                                    refresh_rate,
                                    idcol="name",
@@ -98,14 +90,8 @@ class Heasarc:
         params = locals().copy()
         del params["self"]
         if self._check_catalog_exists(catalog):
-            dbquery = f"""SELECT * FROM {catalog} WHERE __row IN (
-                              SELECT rowid FROM response_rowid_pivot rrp
-                              INNER JOIN query_response_pivot qrp
-                              ON qrp.responseid = rrp.responseid
-                              WHERE qrp.queryid = :queryid);"""
             return self.ldb.fetch_sync(self.aq.query_region,
                                        catalog,
-                                       dbquery,
                                        params,
                                        refresh_rate,
                                        refresh=refresh,
@@ -163,15 +149,9 @@ class Heasarc:
         params = locals().copy()
         del params["self"]
         if self._check_catalog_exists(catalog):
-            dbquery = f"""SELECT * FROM {catalog} WHERE __row IN (
-                              SELECT rowid FROM response_rowid_pivot rrp
-                              INNER JOIN query_response_pivot qrp
-                              ON qrp.responseid = rrp.responseid
-                              WHERE qrp.queryid = :queryid);"""
             del params["catalog"]
             return self.ldb.fetch_sync(self.aq.query_tap,
                                        catalog,
-                                       dbquery,
                                        params,
                                        refresh_rate,
                                        refresh=refresh)

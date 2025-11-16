@@ -439,9 +439,36 @@ class SQLiteDB:
         else:
             self.ingest_table(df, table_name)
 
+    def _get_stashed_rows(self, catalog: str,
+                          qid: int, idcol: str) -> pd.DataFrame:
+        """
+        Gets the stashed rows associated with a query and response
+
+        Parameters
+        ----------
+        catalog: str, name of catalog/table
+
+        qid: int, query id
+
+        idcol: str, name of column in catalog/table used for id
+
+        Returns:
+        pd.DataFrame, rows of a catalog associated with a query
+        """
+        rows = pd.read_sql(
+            """SELECT rowid FROM response_rowid_pivot rrp
+               INNER JOIN query_response_pivot qrp
+               ON qrp.responseid = rrp.responseid
+               WHERE qrp.queryid = :queryid;""",
+            self.conn,
+            params={"queryid": qid})
+        df = pd.read_sql_table(catalog, self.aconn)
+        return df[df[idcol].isin(rows["rowid"])]
+
     def fetch_sync(self, query_func, table_name: str,
-                   dbquery: str, query_params: dict,
-                   refresh_rate: int | None, idcol: str = "__row",
+                   query_params: dict,
+                   refresh_rate: int | None,
+                   idcol: str = "__row",
                    refresh: bool = False,
                    *args, **kwargs) -> pd.DataFrame:
         """
@@ -489,9 +516,7 @@ class SQLiteDB:
             self._ingest_response_and_links(df, qid, idcol)
             # Stash the the external response in the database
             self._stash_table(df, table_name, idcol)
-        return pd.read_sql(dbquery,
-                           self.conn,
-                           params={"queryid": qid})
+        return self._get_stashed_rows(table_name, qid, idcol)
 
     def close(self):
         """
