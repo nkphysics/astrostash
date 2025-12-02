@@ -79,3 +79,15 @@ def test_query_tap():
     heasarc.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
     assert heasarc.ldb._check_table_exists("uhuru4") is True
     os.remove("astrostash.db")
+
+
+def test_locate_data():
+    db = "astrostash/heasarc/tests/data/processed-conflict.db"
+    heasarc = Heasarc(db)
+    crabdf = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
+    products = heasarc.locate_data(crabdf, "nicermastr")
+    expected_columns = ['rowid', 'access_url', 'sciserver', 'aws',
+                        'content_length', 'error_message', 'local_id',
+                        'location']
+    assert products.columns.to_list() == expected_columns
+    assert len(products["location"].dropna()) == 0

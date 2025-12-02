@@ -1,5 +1,6 @@
 import astroquery.heasarc
 from astropy.coordinates import SkyCoord
+from astropy.table import Table
 from astrostash import SQLiteDB
 import pandas as pd
 
@@ -155,3 +156,30 @@ class Heasarc:
                                        params,
                                        refresh_rate,
                                        refresh=refresh)
+
+    def locate_data(self,
+                    result_table: pd.DataFrame,
+                    catalog: str) -> pd.DataFrame:
+        """
+        Gets links and local paths to heasarc data products
+
+        Parameters
+        ----------
+        result_table: pd.DataFrame, results of a previous region, object, or
+                                    tap query
+
+        catalog: str, catalog name
+
+        Returns:
+        pd.DataFrame, all relevant links and paths to access heasarc
+                      data products
+        """
+        aq_table = Table.from_pandas(result_table)
+        remote_df = self.aq.locate_data(aq_table, catalog).to_pandas()
+        remote_df.rename(columns={'ID': 'rowid'}, inplace=True)
+        remote_df["rowid"] = remote_df["rowid"].str.extract(r'\?(\d+)',
+                                                            expand=False)
+        local_df = self.ldb.get_local_data_paths_by_catalog(catalog)
+        local_df.drop(columns=["catalog"], inplace=True)
+        local_df.rename(columns={'id': 'local_id'}, inplace=True)
+        return pd.merge(remote_df, local_df, how="outer")
