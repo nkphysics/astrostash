@@ -465,6 +465,22 @@ class SQLiteDB:
         df = pd.read_sql_table(catalog, self.aconn)
         return df[df[idcol].isin(rows["rowid"])]
 
+    def get_local_data_paths_by_catalog(self, catalog: str) -> pd.DataFrame:
+        """
+        Gets rows of local_data_paths for a specific catalog
+
+        Parameters
+        ----------
+        catalog: str, name of catalog to filter local_data_paths by
+
+        Returns
+        -------
+        pd.DataFrame, rows of local_data_paths for a the specified catalog
+        """
+        query = "SELECT * FROM local_data_paths WHERE catalog = :catalog"
+        df = pd.read_sql(query, self.conn, params={"catalog": catalog})
+        return df
+
     def fetch_sync(self, query_func, table_name: str,
                    query_params: dict,
                    refresh_rate: int | None,
