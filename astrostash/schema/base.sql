@@ -26,3 +26,11 @@ CREATE TABLE IF NOT EXISTS response_rowid_pivot (
     FOREIGN KEY (responseid) REFERENCES responses(id),
     UNIQUE (responseid, rowid)
 );
+
+CREATE TABLE IF NOT EXISTS local_data_paths (
+    id INTEGER PRIMARY KEY,
+    catalog TEXT NOT NULL,
+    rowid TEXT NOT NULL,
+    location TEXT NOT NULL,
+    UNIQUE (catalog, rowid, location)
+);
