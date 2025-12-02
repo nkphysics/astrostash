@@ -3,6 +3,7 @@ import os
 import pathlib as pl
 from datetime import datetime
 import pytest
+import pandas as pd
 
 
 def test_sha256sum():
@@ -49,6 +50,18 @@ def test_SQLiteDB():
     sql1.close()
     os.remove("astrostash.db")
     sql2 = astrostash.SQLiteDB(db_name="astrostash/tests/astrostash_test.db")
+    # Test locate_date operations
+    demo_product_path = "/DEMO/PATH/TO/nicermastr/1013010107/"
+    dpid = sql2.insert_local_data_path("nicermastr",
+                                       43555,
+                                       demo_product_path)
+    assert dpid == 1
+    local_data_frame = sql2.get_local_data_paths_by_catalog("nicermastr")
+    dummy_frame = pd.DataFrame({"id": [1],
+                                "catalog": ["nicermastr"],
+                                "rowid": ["43555"],
+                                "location": [demo_product_path]})
+    pd.testing.assert_frame_equal(local_data_frame, dummy_frame)
     sql2.close()
     assert pl.Path("astrostash/tests/astrostash_test.db").is_file() is True
     os.remove("astrostash/tests/astrostash_test.db")

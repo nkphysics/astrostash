@@ -481,6 +481,39 @@ class SQLiteDB:
         df = pd.read_sql(query, self.conn, params={"catalog": catalog})
         return df
 
+    def insert_local_data_path(self, catalog: str,
+                               rowid: int | str, location: str) -> int:
+        """
+        Inserts a new record into the local_data_paths table.
+        If a record with the same (catalog, rowid, location) already exists,
+        it is ignored.
+
+        Parameters
+        ----------
+        catalog: str, catalog the data product is associated with
+
+        rowid: str, id from the catalog table
+
+        location: str, local path to data product
+
+        Returns
+        -------
+        int, id for the record of the data path location
+        """
+        query = """INSERT OR IGNORE INTO local_data_paths (
+                        catalog,
+                        rowid,
+                        location)
+                   VALUES (
+                        :catalog,
+                        :rowid,
+                        :location)"""
+        self.cursor.execute(query, {"catalog": catalog,
+                                    "rowid": rowid,
+                                    "location": location})
+        self.conn.commit()
+        return self.cursor.lastrowid
+
     def fetch_sync(self, query_func, table_name: str,
                    query_params: dict,
                    refresh_rate: int | None,
