@@ -1,6 +1,7 @@
 from astrostash.heasarc import Heasarc
 from astropy.coordinates import SkyCoord
 import os
+import pathlib as pl
 import shutil
 import pytest
 import pandas as pd
@@ -91,3 +92,20 @@ def test_locate_data():
                         'location']
     assert products.columns.to_list() == expected_columns
     assert len(products["location"].dropna()) == 0
+
+
+def test_download_data():
+    db = "astrostash/heasarc/tests/data/processed-conflict.db"
+    heasarc = Heasarc(db)
+    crabdf = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
+    products = heasarc.locate_data(crabdf, "nicermastr")
+    sel = products.loc[products["rowid"] == "43555"]
+    heasarc.download_data(sel, "nicermastr", host="heasarc", location=".")
+    local_paths = heasarc.ldb.get_local_data_paths_by_catalog("nicermastr")
+    dummy_frame = pd.DataFrame({
+        "id": [1],
+        "catalog": ["nicermastr"],
+        "rowid": ["43555"],
+        "location": [str(pl.Path(f"./1013010107").resolve())]
+    })
+    pd.testing.assert_frame_equal(local_paths, dummy_frame)

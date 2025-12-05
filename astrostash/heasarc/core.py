@@ -3,6 +3,7 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astrostash import SQLiteDB
 import pandas as pd
+import pathlib as pl
 
 
 class Heasarc:
@@ -183,3 +184,36 @@ class Heasarc:
         local_df.drop(columns=["catalog"], inplace=True)
         local_df.rename(columns={'id': 'local_id'}, inplace=True)
         return pd.merge(remote_df, local_df, how="outer")
+
+    def download_data(self, links: pd.DataFrame, catalog: str, *,
+                      host="aws", location="."):
+        """
+        Downloads data from from using the links from the specified host
+        to the location specified, and adds the full path to the data product
+        to the local_data_paths table
+
+        Parameters
+        ----------
+        links: pd.DataFrame, dataframe with links
+
+        catalog: str, catalog the links come from
+
+        host: str, optional, host to retrieve the data products from
+                             options are aws (default and fastest) sciserver,
+                             or heasarc
+
+        location str, optional, path of the location to download the data to
+                                (default is ".")
+        """
+        links = Table.from_pandas(links)
+        linkcol = host
+        location = pl.Path(location).resolve()
+        if linkcol == 'heasarc':
+            linkcol = "access_url"
+        for row in links:
+            download_name = row[linkcol].split("/")[-2]
+            self.aq.download_data(row, host=host, location=location)
+            self.ldb.insert_local_data_path(
+                catalog,
+                row["rowid"],
+                f"{location}/{download_name}")
