@@ -8,9 +8,14 @@ import pandas as pd
 
 
 @pytest.fixture
-def cleanup_copies():
-    yield
-    os.remove("astrostash/heasarc/tests/data/processed-conflict-copy.db")
+def copy_dir_setup():
+    dbroot = "astrostash/heasarc/tests/data"
+    db = f"{dbroot}/processed-conflict.db"
+    dbcopy = f"{dbroot}/processed-conflict-copy.db"
+    shutil.copy(db, dbcopy)
+    heasarc = Heasarc(dbcopy)
+    yield heasarc
+    os.remove(dbcopy)
 
 
 @pytest.fixture
@@ -53,18 +58,14 @@ def test_query_region():
     os.remove("astrostash.db")
 
 
-def test_query_object(cleanup_copies):
+def test_query_object(copy_dir_setup):
     heasarc = Heasarc()
     init_query = heasarc.query_object("crab", catalog="nicermastr")
     assert heasarc.ldb._check_table_exists("nicermastr") is True
     alias_query = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
     pd.testing.assert_frame_equal(init_query, alias_query)
     os.remove("astrostash.db")
-    dbroot = "astrostash/heasarc/tests/data"
-    db = f"{dbroot}/processed-conflict.db"
-    dbcopy = f"{dbroot}/processed-conflict-copy.db"
-    shutil.copy(db, dbcopy)
-    heasarc2 = Heasarc(db_name=dbcopy)
+    heasarc2 = copy_dir_setup
     crab_refresh = heasarc2.query_object(
         "crab", catalog="nicermastr", refresh_rate=2
         )
@@ -94,18 +95,19 @@ def test_locate_data(setup):
     assert len(products["location"].dropna()) == 0
 
 
-def test_download_data():
-    db = "astrostash/heasarc/tests/data/processed-conflict.db"
-    heasarc = Heasarc(db)
+def test_download_data(copy_dir_setup):
+    heasarc = copy_dir_setup
     crabdf = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
     products = heasarc.locate_data(crabdf, "nicermastr")
     sel = products.loc[products["rowid"] == "43555"]
     heasarc.download_data(sel, "nicermastr", host="heasarc", location=".")
     local_paths = heasarc.ldb.get_local_data_paths_by_catalog("nicermastr")
+    expected_dir = str(pl.Path(f"./1013010107").resolve())
     dummy_frame = pd.DataFrame({
         "id": [1],
         "catalog": ["nicermastr"],
         "rowid": ["43555"],
-        "location": [str(pl.Path(f"./1013010107").resolve())]
+        "location": [expected_dir]
     })
     pd.testing.assert_frame_equal(local_paths, dummy_frame)
+    shutil.rmtree(expected_dir)
