@@ -76,10 +76,9 @@ def test_query_object(cleanup_copies):
 
 
 def test_query_tap():
-    heasarc = Heasarc()
+    heasarc = Heasarc("astrostash/heasarc/tests/data/processed-conflict.db")
     heasarc.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
     assert heasarc.ldb._check_table_exists("uhuru4") is True
-    os.remove("astrostash.db")
 
 
 def test_locate_data():
