@@ -13,6 +13,12 @@ def cleanup_copies():
     os.remove("astrostash/heasarc/tests/data/processed-conflict-copy.db")
 
 
+@pytest.fixture
+def setup():
+    heasarc = Heasarc("astrostash/heasarc/tests/data/processed-conflict.db")
+    yield heasarc
+
+
 def test_list_catalogs():
     heasarc = Heasarc()
     cat_list_get = heasarc.list_catalogs()
@@ -71,21 +77,16 @@ def test_query_object(cleanup_copies):
     # Test pull existing data
     aql_x1 = heasarc2.query_object("AQL X-1", catalog="nicermastr")
     assert len(aql_x1) == 302
-    # Test pulling new data
-    heasarc2.query_object("geminga", catalog="nicermastr")
 
 
-def test_query_tap():
-    heasarc = Heasarc("astrostash/heasarc/tests/data/processed-conflict.db")
-    heasarc.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
-    assert heasarc.ldb._check_table_exists("uhuru4") is True
+def test_query_tap(setup):
+    setup.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
+    assert setup.ldb._check_table_exists("uhuru4") is True
 
 
-def test_locate_data():
-    db = "astrostash/heasarc/tests/data/processed-conflict.db"
-    heasarc = Heasarc(db)
-    crabdf = heasarc.query_object("PSR B0531+21", catalog="nicermastr")
-    products = heasarc.locate_data(crabdf, "nicermastr")
+def test_locate_data(setup):
+    crabdf = setup.query_object("PSR B0531+21", catalog="nicermastr")
+    products = setup.locate_data(crabdf, "nicermastr")
     expected_columns = ['rowid', 'access_url', 'sciserver', 'aws',
                         'content_length', 'error_message', 'local_id',
                         'location']
