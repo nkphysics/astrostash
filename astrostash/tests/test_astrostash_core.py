@@ -4,6 +4,8 @@ import pathlib as pl
 from datetime import datetime
 import pytest
 import pandas as pd
+from astropy.table import Table
+from unittest.mock import MagicMock
 
 
 def test_sha256sum():
@@ -84,6 +86,41 @@ def test_get_refresh_rate(setup_sqlite_db):
     assert sql.get_refresh_rate(1) == 14
     # Test non-existent ID
     assert sql.get_refresh_rate(2) is None
+
+
+def test_fetch_sync(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+
+    # Create a mock query_func that returns a DataFrame
+    mock_df = pd.DataFrame({'__row': ['1', '2'], 'col1': ['a', 'b']})
+    mock_func_resp = Table.from_pandas(mock_df)
+    mock_query_func = MagicMock(return_value=mock_func_resp)
+
+    # Prepare query_params with refresh_rate and refresh keys
+    query_params = {
+        'param1': 'value1',
+        'refresh_rate': 7,
+        'refresh': False
+    }
+
+    # Call fetch_sync
+    result_df = sql.fetch_sync(
+        mock_query_func,
+        'test_table',
+        query_params,
+        None
+    )
+
+    assert sql._check_table_exists("test_table") is True
+    assert not result_df.empty
+    # 1. Verify that query_func was called once
+    mock_query_func.assert_called_once()
+    # 2. Verify the expected parameters passed to query_func
+    expected_kwargs = {k: v for k, v in query_params.items()
+                       if k not in ['refresh_rate', 'refresh']}
+    mock_query_func.assert_called_once_with(**expected_kwargs)
+    # 3. Verify the returned DataFrame matches the mock_df
+    pd.testing.assert_frame_equal(result_df, mock_df)
 
 
 def test_insert_local_data_path(setup_sqlite_db):
