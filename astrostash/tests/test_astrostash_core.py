@@ -88,6 +88,17 @@ def test_get_refresh_rate(setup_sqlite_db):
     assert sql.get_refresh_rate(2) is None
 
 
+def test_update_last_refreshed(setup_sqlite_db):
+    sql = setup_sqlite_db[0]
+    query_params = {"query": "PSR B0531+21", "catalog": "xtemaster"}
+    query_hash = astrostash.sha256sum(query_params)
+    sql.insert_query(query_hash, None)
+    today = datetime.today().strftime('%Y-%m-%d')
+    assert sql.get_query(query_hash)["last_refreshed"][0] == today
+    row_updated = sql.update_last_refreshed(1)
+    assert row_updated == 1
+
+
 def test_fetch_sync(setup_sqlite_db):
     sql, db_path = setup_sqlite_db
 
