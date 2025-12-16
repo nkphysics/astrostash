@@ -99,6 +99,17 @@ def test_update_last_refreshed(setup_sqlite_db):
     assert row_updated == 1
 
 
+def test_update_refresh_rate(setup_sqlite_db):
+    sql = setup_sqlite_db[0]
+    query_params = {"query": "PSR B0531+21", "catalog": "numaster"}
+    query_hash = astrostash.sha256sum(query_params)
+    queryid = sql.insert_query(query_hash, 7)
+    updateid = sql.update_refresh_rate(1, 8)
+    assert queryid == updateid
+    query = sql.get_query(query_hash)
+    assert query['refresh_rate'][0] == 8
+
+
 def test_fetch_sync(setup_sqlite_db):
     sql, db_path = setup_sqlite_db
 
