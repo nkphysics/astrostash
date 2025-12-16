@@ -102,36 +102,50 @@ def test_update_last_refreshed(setup_sqlite_db):
 def test_fetch_sync(setup_sqlite_db):
     sql, db_path = setup_sqlite_db
 
-    # Create a mock query_func that returns a DataFrame
+    def run_test(refresh, expected_df):
+        mock_func_resp = Table.from_pandas(expected_df)
+        mock_query_func = MagicMock(return_value=mock_func_resp)
+        query_params = {
+            'param1': 'value1',
+            'refresh_rate': 7,
+            'refresh': refresh
+        }
+        result_df = sql.fetch_sync(
+            mock_query_func,
+            'test_table',
+            query_params,
+            None,
+            refresh=refresh
+        )
+
+        assert not result_df.empty
+        mock_query_func.assert_called_once()
+        expected_kwargs = {k: v for k, v in query_params.items()
+                           if k not in ['refresh_rate', 'refresh']}
+        mock_query_func.assert_called_once_with(**expected_kwargs)
+        pd.testing.assert_frame_equal(result_df, expected_df)
+
+        # Special assertion for refresh=False
+        if not refresh:
+            assert sql._check_table_exists("test_table") is True
+
+    # First test case: refresh=False
     mock_df = pd.DataFrame({'__row': ['1', '2'], 'col1': ['a', 'b']})
-    mock_func_resp = Table.from_pandas(mock_df)
-    mock_query_func = MagicMock(return_value=mock_func_resp)
+    run_test(False, mock_df)
 
-    # Prepare query_params with refresh_rate and refresh keys
-    query_params = {
-        'param1': 'value1',
-        'refresh_rate': 7,
-        'refresh': False
-    }
+    # Second test case: refresh=True
+    mock_df2 = pd.DataFrame({'__row': ['1', '2', '3'],
+                             'col1': ['a', 'b', 'c']})
+    run_test(True, mock_df2)
 
-    # Call fetch_sync
-    result_df = sql.fetch_sync(
-        mock_query_func,
-        'test_table',
-        query_params,
-        None
-    )
+    # 3rd test case: refresh=True but the response dataframe has no changes
+    run_test(True, mock_df2)
 
-    assert sql._check_table_exists("test_table") is True
-    assert not result_df.empty
-    # 1. Verify that query_func was called once
-    mock_query_func.assert_called_once()
-    # 2. Verify the expected parameters passed to query_func
-    expected_kwargs = {k: v for k, v in query_params.items()
-                       if k not in ['refresh_rate', 'refresh']}
-    mock_query_func.assert_called_once_with(**expected_kwargs)
-    # 3. Verify the returned DataFrame matches the mock_df
-    pd.testing.assert_frame_equal(result_df, mock_df)
+    # 4th test case: returned data table is same size as the existing data,
+    # but one value of the new table is different
+    mock_df3 = pd.DataFrame({'__row': ['1', '2', '3'],
+                             'col1': ['a', 'b', 'd']})
+    run_test(True, mock_df3)
 
 
 def test_insert_local_data_path(setup_sqlite_db):
