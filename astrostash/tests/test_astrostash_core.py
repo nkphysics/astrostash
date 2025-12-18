@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 import pandas as pd
 from astropy.table import Table
+from astropy.coordinates import SkyCoord
 from unittest.mock import MagicMock
 
 
@@ -13,7 +14,16 @@ def test_sha256sum():
         "query": "PSR B0531+21",
         "catalog": "xtemaster"
         }
-    astrostash.sha256sum(query_params)
+    object_hash = astrostash.sha256sum(query_params)
+
+    region_query_params = {
+        "query": SkyCoord.from_name("PSR B0531+21"),
+        "catalog": "xtemaster"
+        }
+    region_hash = astrostash.sha256sum(region_query_params)
+    # assert no change to query dtype
+    assert isinstance(region_query_params["query"], SkyCoord)
+    assert object_hash != region_hash
 
 
 def test_need_refresh():
