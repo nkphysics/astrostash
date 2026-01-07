@@ -118,6 +118,8 @@ def test_update_refresh_rate(setup_sqlite_db):
     assert queryid == updateid
     query = sql.get_query(query_hash)
     assert query['refresh_rate'][0] == 8
+    queryid2 = sql._get_queryid(query, False, refresh_rate=20)[0]
+    assert queryid == queryid2
 
 
 def test_fetch_sync(setup_sqlite_db):
