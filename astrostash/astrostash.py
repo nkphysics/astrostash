@@ -541,7 +541,8 @@ class SQLiteDB:
         Returns:
         pd.DataFrame, table with the results of the query
         """
-        del query_params["refresh_rate"], query_params["refresh"]
+        query_params.pop("refresh_rate", None)
+        query_params.pop("refresh", None)
         query_hash = sha256sum(query_params)
         qdf = self.get_query(query_hash)
         qid, refresh = self._get_queryid(qdf, refresh, refresh_rate)

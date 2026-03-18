@@ -38,7 +38,7 @@ class Heasarc:
         pd.DataFrame, heasarc catalogs and descriptions
         """
         params = locals().copy()
-        del params["self"]
+        params.pop("self", None)
         return self.ldb.fetch_sync(self.aq.list_catalogs,
                                    "heasarc_catalog_list",
                                    params,
@@ -84,13 +84,13 @@ class Heasarc:
                  if True
 
         **kwargs: additional kwargs to be passed into
-                  astroquery.Heasarc.query_region
+                   astroquery.Heasarc.query_region
 
         Returns:
         pd.DataFrame, table of catalog's records around the specified region
         """
         params = locals().copy()
-        del params["self"]
+        params.pop("self", None)
         if self._check_catalog_exists(catalog):
             return self.ldb.fetch_sync(self.aq.query_region,
                                        catalog,
@@ -149,9 +149,9 @@ class Heasarc:
         pd.DataFrame, response from HEASARC for the ADQL query
         """
         params = locals().copy()
-        del params["self"]
+        params.pop("self", None)
         if self._check_catalog_exists(catalog):
-            del params["catalog"]
+            params.pop("catalog", None)
             return self.ldb.fetch_sync(self.aq.query_tap,
                                        catalog,
                                        params,
