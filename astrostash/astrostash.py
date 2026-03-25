@@ -2,10 +2,13 @@ import pathlib as pl
 import sqlite3
 from sqlalchemy import create_engine
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import hashlib
 import json
 import astropy
+from astropy.coordinates import SkyCoord, Angle
+from astropy import units as u
 from importlib.resources import files
 
 
@@ -142,6 +145,78 @@ class SQLiteDB:
                                name = :name LIMIT 1;""",
                             {"name": name})
         return self.cursor.fetchone() is not None
+
+    def _validate_spatial_table(self, table: str) -> None:
+        """
+        Validates that a table exists and has ra/dec columns
+
+        Parameters:
+        table: str, name of table to validate
+
+        Raises:
+        ValueError, if table doesn't exist or lacks ra/dec columns
+        """
+        if not self._check_table_exists(table):
+            raise ValueError(
+                f"Table '{table}' does not exist in {self.db_name}")
+        cols = [c.lower() for c in self.get_columns(table)]
+        if "ra" not in cols or "dec" not in cols:
+            raise ValueError(
+                f"Table '{table}' has no 'ra' and 'dec' columns")
+
+    def _normalize_position(self, position) -> SkyCoord:
+        """
+        Normalizes a position to a SkyCoord object
+
+        Parameters:
+        position: SkyCoord or str, coordinate position
+
+        Returns:
+        SkyCoord, normalized coordinate object
+        """
+        if isinstance(position, SkyCoord):
+            return position
+        return SkyCoord(position)
+
+    def _parse_angle(self, value) -> float:
+        """
+        Converts a string or Quantity angle to degrees
+
+        Parameters:
+        value: str or astropy.units.Quantity, angle value
+
+        Returns:
+        float, angle in degrees
+        """
+        if isinstance(value, str):
+            return Angle(value).deg
+        return value.to(u.deg).value
+
+    def _point_in_polygon(self, ra: np.ndarray,
+                          dec: np.ndarray,
+                          vertices: list) -> np.ndarray:
+        """
+        Vectorized ray-casting point-in-polygon test
+
+        Parameters:
+        ra: np.ndarray, right ascension values in degrees
+        dec: np.ndarray, declination values in degrees
+        vertices: list of (ra, dec) tuples in degrees outlining the polygon
+
+        Returns:
+        np.ndarray, boolean mask where True indicates point is inside polygon
+        """
+        n = len(vertices)
+        inside = np.zeros(len(ra), dtype=bool)
+        for i in range(n):
+            yi, xi = vertices[i][1], vertices[i][0]
+            yj, xj = vertices[(i - 1) % n][1], vertices[(i - 1) % n][0]
+            if yi == yj:
+                continue
+            cond = ((yi > dec) != (yj > dec)) & \
+                   (ra < (xj - xi) * (dec - yi) / (yj - yi) + xi)
+            inside ^= cond
+        return inside
 
     def get_columns(self, tablename: str) -> list:
         """
@@ -567,6 +642,97 @@ class SQLiteDB:
             # Stash the the external response in the database
             self._stash_table(df, table_name, idcol)
         return self._get_stashed_rows(table_name, qid, idcol)
+
+    def query_region(self, table: str,
+                     position=None,
+                     spatial: str = 'cone',
+                     radius=None,
+                     width=None,
+                     polygon: list = None) -> pd.DataFrame:
+        """
+        Queries a local database table for rows within a specified
+        astronomical region
+
+        Parameters:
+        table : str
+            The catalog table to query. The table must have ``ra`` and
+            ``dec`` columns.
+        position : str or `astropy.coordinates.SkyCoord`
+            Gives the position of the center of the cone or box if
+            performing a cone or box search. Required if spatial is
+            ``'cone'`` or ``'box'``. Ignored if spatial is
+            ``'polygon'`` or ``'all-sky'``.
+        spatial : str
+            Type of spatial query: ``'cone'``, ``'box'``, ``'polygon'``,
+            and ``'all-sky'``. Defaults to ``'cone'``.
+        radius : str or `~astropy.units.Quantity`, [optional for
+            spatial == ``'cone'``]
+            The string must be parsable by `~astropy.coordinates.Angle`.
+            The appropriate `~astropy.units.Quantity` object from
+            `astropy.units` may also be used.
+        width : str or `~astropy.units.Quantity`, [Required for
+            spatial == ``'box'``]
+            The string must be parsable by `~astropy.coordinates.Angle`.
+            The appropriate `~astropy.units.Quantity` object from
+            `astropy.units` may also be used.
+        polygon : list, [Required for spatial is ``'polygon'``]
+            A list of ``(ra, dec)`` pairs (as tuples), in decimal degrees,
+            outlining the polygon to search in.
+
+        Returns:
+        pd.DataFrame, rows from the table that fall within the specified
+                      spatial region
+        """
+        self._validate_spatial_table(table)
+        df = pd.read_sql(f'SELECT * FROM "{table}"', self.conn)
+        if df.empty:
+            return df
+        ra = df['ra'].to_numpy()
+        dec = df['dec'].to_numpy()
+
+        if spatial == 'all-sky':
+            return df
+
+        if spatial in ('cone', 'box'):
+            if position is None:
+                raise ValueError(
+                    "position is required for cone and box queries")
+            coord = self._normalize_position(position)
+            cra, cdec = coord.ra.deg, coord.dec.deg
+
+        if spatial == 'cone':
+            if radius is None:
+                raise ValueError("radius is required for cone queries")
+            r_deg = self._parse_angle(radius)
+            ra_rad = np.radians(ra)
+            dec_rad = np.radians(dec)
+            cra_rad = np.radians(cra)
+            cdec_rad = np.radians(cdec)
+            dlat = dec_rad - cdec_rad
+            dlon = ra_rad - cra_rad
+            a = np.sin(dlat / 2) ** 2 + \
+                np.cos(cdec_rad) * np.cos(dec_rad) * \
+                np.sin(dlon / 2) ** 2
+            dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
+            mask = dist_deg <= r_deg
+            return df[mask].reset_index(drop=True)
+
+        if spatial == 'box':
+            if width is None:
+                raise ValueError("width is required for box queries")
+            w_deg = self._parse_angle(width)
+            half = w_deg / 2.0
+            mask = ((ra >= cra - half) & (ra <= cra + half) &
+                    (dec >= cdec - half) & (dec <= cdec + half))
+            return df[mask].reset_index(drop=True)
+
+        if spatial == 'polygon':
+            if polygon is None:
+                raise ValueError("polygon is required for polygon queries")
+            inside = self._point_in_polygon(ra, dec, polygon)
+            return df[inside].reset_index(drop=True)
+
+        raise ValueError(f"Unknown spatial mode: '{spatial}'")
 
     def close(self):
         """

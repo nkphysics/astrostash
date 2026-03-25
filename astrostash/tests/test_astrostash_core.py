@@ -6,6 +6,7 @@ import pytest
 import pandas as pd
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
+from astropy import units as u
 from unittest.mock import MagicMock
 
 
@@ -186,3 +187,141 @@ def test_insert_local_data_path(setup_sqlite_db):
         "location": [demo_product_path]
     })
     pd.testing.assert_frame_equal(local_data_frame, dummy_frame)
+
+
+@pytest.fixture
+def setup_spatial_db(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+    df = pd.DataFrame({
+        'ra': [10.0, 10.1, 10.5, 20.0, 150.0],
+        'dec': [20.0, 20.1, 20.5, 30.0, -45.0],
+        'name': ['a', 'b', 'c', 'd', 'e'],
+        '__row': ['1', '2', '3', '4', '5']
+    })
+    sql.ingest_table(df, 'test_cat')
+    return sql
+
+
+def test_query_region_cone(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    result = sql.query_region('test_cat', position=center,
+                              spatial='cone', radius='0.2deg')
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_cone_with_quantity(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    result = sql.query_region('test_cat', position=center,
+                              spatial='cone', radius=0.2 * u.deg)
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_cone_string_position(setup_spatial_db):
+    sql = setup_spatial_db
+    result = sql.query_region('test_cat', position='10d 20d',
+                              spatial='cone', radius='0.2deg')
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_box(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    result = sql.query_region('test_cat', position=center,
+                              spatial='box', width='0.3deg')
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_box_with_quantity(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    result = sql.query_region('test_cat', position=center,
+                              spatial='box', width=0.3 * u.deg)
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_polygon(setup_spatial_db):
+    sql = setup_spatial_db
+    verts = [(9.8, 19.8), (10.3, 19.8), (10.3, 20.3), (9.8, 20.3)]
+    result = sql.query_region('test_cat', spatial='polygon', polygon=verts)
+    assert len(result) == 2
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b']
+
+
+def test_query_region_allsky(setup_spatial_db):
+    sql = setup_spatial_db
+    result = sql.query_region('test_cat', spatial='all-sky')
+    assert len(result) == 5
+
+
+def test_query_region_empty_table(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+    df = pd.DataFrame({
+        'ra': pd.Series(dtype='float64'),
+        'dec': pd.Series(dtype='float64'),
+        'name': pd.Series(dtype='object'),
+        '__row': pd.Series(dtype='object')
+    })
+    sql.ingest_table(df, 'empty_cat')
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    result = sql.query_region('empty_cat', position=center,
+                              spatial='cone', radius='1deg')
+    assert result.empty
+
+
+def test_query_region_no_table(setup_spatial_db):
+    sql = setup_spatial_db
+    with pytest.raises(ValueError, match="does not exist"):
+        sql.query_region('nonexistent', spatial='all-sky')
+
+
+def test_query_region_no_ra_dec(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+    df = pd.DataFrame({'x': [1, 2], 'y': [3, 4]})
+    sql.ingest_table(df, 'no_radec')
+    with pytest.raises(ValueError, match="has no 'ra' and 'dec' columns"):
+        sql.query_region('no_radec', spatial='all-sky')
+
+
+def test_query_region_missing_position(setup_spatial_db):
+    sql = setup_spatial_db
+    with pytest.raises(ValueError, match="position is required"):
+        sql.query_region('test_cat', spatial='cone', radius='1deg')
+
+
+def test_query_region_missing_radius(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    with pytest.raises(ValueError, match="radius is required"):
+        sql.query_region('test_cat', position=center, spatial='cone')
+
+
+def test_query_region_missing_width(setup_spatial_db):
+    sql = setup_spatial_db
+    center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
+    with pytest.raises(ValueError, match="width is required"):
+        sql.query_region('test_cat', position=center, spatial='box')
+
+
+def test_query_region_missing_polygon(setup_spatial_db):
+    sql = setup_spatial_db
+    with pytest.raises(ValueError, match="polygon is required"):
+        sql.query_region('test_cat', spatial='polygon')
+
+
+def test_query_region_unknown_spatial(setup_spatial_db):
+    sql = setup_spatial_db
+    with pytest.raises(ValueError, match="Unknown spatial mode"):
+        sql.query_region('test_cat', spatial='invalid')
