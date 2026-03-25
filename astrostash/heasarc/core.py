@@ -61,7 +61,9 @@ class Heasarc:
 
     def query_region(self, position=None, catalog=None,
                      radius=None, refresh_rate=None,
-                     refresh=False, **kwargs) -> pd.DataFrame:
+                     refresh=False, local=False,
+                     spatial='cone', width=None, polygon=None,
+                     **kwargs) -> pd.DataFrame:
         """
         Queries a catalog at the heasarc for records around a specific
         region
@@ -83,14 +85,45 @@ class Heasarc:
                  Toggles call to the heasarc to refresh the query response
                  if True
 
+        local: bool, default = False
+               If True, query the local database directly for the specified
+               spatial region instead of fetching from the remote heasarc.
+               Bypasses query history lookup and remote calls.
+
+        spatial: str, default 'cone'
+                 Type of spatial query for local mode: 'cone', 'box',
+                 'polygon', or 'all-sky'. Ignored if local is False.
+
+        width: str or `~astropy.units.Quantity`, [Required for
+               spatial == 'box' in local mode]
+               Width of the box search region.
+
+        polygon: list, [Required for spatial is 'polygon' in local mode]
+                 A list of (ra, dec) pairs in decimal degrees outlining
+                 the polygon to search in.
+
         **kwargs: additional kwargs to be passed into
                    astroquery.Heasarc.query_region
 
         Returns:
         pd.DataFrame, table of catalog's records around the specified region
         """
+        if local:
+            if catalog is None:
+                raise ValueError("catalog is required for local queries")
+            return self.ldb.query_region(
+                table=catalog,
+                position=position,
+                spatial=spatial,
+                radius=radius,
+                width=width,
+                polygon=polygon)
         params = locals().copy()
         params.pop("self", None)
+        params.pop("local", None)
+        params.pop("spatial", None)
+        params.pop("width", None)
+        params.pop("polygon", None)
         if self._check_catalog_exists(catalog):
             return self.ldb.fetch_sync(self.aq.query_region,
                                        catalog,
@@ -101,7 +134,9 @@ class Heasarc:
 
     def query_object(self, object_name, catalog=None,
                      radius=None, refresh_rate=None,
-                     refresh=False, **kwargs) -> pd.DataFrame:
+                     refresh=False, local=False,
+                     spatial='cone', width=None, polygon=None,
+                     **kwargs) -> pd.DataFrame:
         """
         Queries a catalog at the heasarc for records around a specific
         object/source
@@ -121,6 +156,21 @@ class Heasarc:
                  Toggles call to the heasarc to refresh the query response
                  if True
 
+        local: bool, default = False
+               If True, query the local database directly for the specified
+               spatial region instead of fetching from the remote heasarc.
+
+        spatial: str, default 'cone'
+                 Type of spatial query for local mode: 'cone', 'box',
+                 'polygon', or 'all-sky'. Ignored if local is False.
+
+        width: str or `~astropy.units.Quantity`, optional
+               Width of the box search region for local mode.
+
+        polygon: list, optional
+                 A list of (ra, dec) pairs in decimal degrees outlining
+                 the polygon to search in for local mode.
+
         Returns:
         pd.DataFrame, table of catalog's records for the specified object
         """
@@ -130,6 +180,10 @@ class Heasarc:
                                  radius=radius,
                                  refresh_rate=refresh_rate,
                                  refresh=refresh,
+                                 local=local,
+                                 spatial=spatial,
+                                 width=width,
+                                 polygon=polygon,
                                  **kwargs)
 
     def query_tap(self, query: str, catalog: str, maxrec=None,

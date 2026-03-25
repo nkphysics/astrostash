@@ -111,3 +111,102 @@ def test_download_data(copy_dir_setup):
     })
     pd.testing.assert_frame_equal(local_paths, dummy_frame)
     shutil.rmtree(expected_dir)
+
+
+def test_query_region_local_cone(setup):
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    result = setup.query_region(position=pos, catalog='nicermastr',
+                                radius='0.5deg', local=True)
+    assert not result.empty
+    assert len(result) == 188
+    assert 'ra' in result.columns
+    assert 'dec' in result.columns
+    assert 'name' in result.columns
+
+
+def test_query_region_local_cone_quantity(setup):
+    from astropy import units as u
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    result = setup.query_region(position=pos, catalog='nicermastr',
+                                radius=0.5 * u.deg, local=True)
+    assert not result.empty
+    assert len(result) == 188
+
+
+def test_query_region_local_allsky(setup):
+    result = setup.query_region(catalog='uhuru4',
+                                spatial='all-sky', local=True)
+    assert len(result) == 339
+
+
+def test_query_region_local_no_catalog(setup):
+    with pytest.raises(ValueError, match="catalog is required"):
+        setup.query_region(local=True, position='10d 20d', radius='1deg')
+
+
+def test_query_region_local_no_table(setup):
+    with pytest.raises(ValueError, match="does not exist"):
+        setup.query_region(catalog='nonexistent', local=True,
+                           spatial='all-sky')
+
+
+def test_query_region_local_missing_position(setup):
+    with pytest.raises(ValueError, match="position is required"):
+        setup.query_region(catalog='nicermastr', local=True,
+                           radius='1deg')
+
+
+def test_query_region_local_missing_radius(setup):
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    with pytest.raises(ValueError, match="radius is required"):
+        setup.query_region(position=pos, catalog='nicermastr', local=True)
+
+
+def test_query_region_local_box(setup):
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    result = setup.query_region(position=pos, catalog='nicermastr',
+                                spatial='box', width='0.01deg', local=True)
+    assert not result.empty
+    # All results should be within the box
+    assert all(result['ra'] >= 83.633 - 0.005)
+    assert all(result['ra'] <= 83.633 + 0.005)
+    assert all(result['dec'] >= 22.015 - 0.005)
+    assert all(result['dec'] <= 22.015 + 0.005)
+
+
+def test_query_region_local_box_missing_width(setup):
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    with pytest.raises(ValueError, match="width is required"):
+        setup.query_region(position=pos, catalog='nicermastr',
+                           spatial='box', local=True)
+
+
+def test_query_region_local_polygon(setup):
+    verts = [(83.62, 22.01), (83.65, 22.01), (83.65, 22.03), (83.62, 22.03)]
+    result = setup.query_region(catalog='nicermastr',
+                                spatial='polygon', polygon=verts, local=True)
+    assert not result.empty
+    # All results should be within the polygon bounds
+    assert all(result['ra'] >= 83.62)
+    assert all(result['ra'] <= 83.65)
+    assert all(result['dec'] >= 22.01)
+    assert all(result['dec'] <= 22.03)
+
+
+def test_query_region_local_polygon_missing_polygon(setup):
+    with pytest.raises(ValueError, match="polygon is required"):
+        setup.query_region(catalog='nicermastr',
+                           spatial='polygon', local=True)
+
+
+def test_query_region_local_unknown_spatial(setup):
+    with pytest.raises(ValueError, match="Unknown spatial mode"):
+        setup.query_region(catalog='nicermastr',
+                           spatial='invalid', local=True)
+
+
+def test_query_region_local_no_ra_dec(setup):
+    # heasarc_catalog_list has no ra/dec columns
+    with pytest.raises(ValueError, match="has no 'ra' and 'dec' columns"):
+        setup.query_region(catalog='heasarc_catalog_list',
+                           spatial='all-sky', local=True)
