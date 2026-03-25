@@ -267,17 +267,18 @@ class SQLiteDB:
 
     def insert_response_rowid_pivot(self,
                                     responseid: int,
-                                    rowid: str) -> None:
+                                    rowid: list[str]) -> None:
         """
-        Inserts a response id and generic rowid pair
+        Inserts response id and rowid pair(s)
 
         Parameters:
         responseid: int, response id from responses table
 
-        rowid: str, id associated with a unique row (obsid, name, doi)
-                    of an external table (nicermastr, heasarc_catalog_list)
+        rowid: list of str, id(s) associated with unique row(s)
+                    (obsid, name, doi) of an external table
+                    (nicermastr, heasarc_catalog_list)
         """
-        self.cursor.execute(
+        self.cursor.executemany(
             """ INSERT INTO response_rowid_pivot (
                 responseid,
                 rowid
@@ -286,7 +287,7 @@ class SQLiteDB:
                 :responseid,
                 :rowid
             );""",
-            {"responseid": responseid, "rowid": rowid})
+            [{"responseid": responseid, "rowid": r} for r in rowid])
         self.conn.commit()
 
     def _ingest_response_and_links(self, df: pd.DataFrame, qid: int,
@@ -308,8 +309,7 @@ class SQLiteDB:
         if rid is None:
             rid = self.insert_response(response_hash)
             self.insert_query_response_pivot(qid, rid)
-            for rowid in df[idcol].values:
-                self.insert_response_rowid_pivot(rid, rowid)
+            self.insert_response_rowid_pivot(rid, df[idcol].tolist())
         elif self._check_query_response_link(qid, rid[0]) == 0:
             self.insert_query_response_pivot(qid, rid[0])
 
