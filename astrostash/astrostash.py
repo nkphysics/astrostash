@@ -684,7 +684,7 @@ class SQLiteDB:
                       spatial region
         """
         self._validate_spatial_table(table)
-        df = pd.read_sql(f'SELECT * FROM "{table}"', self.conn)
+        df = pd.read_sql_table(table, self.aconn)
         if df.empty:
             return df
         ra = df['ra'].to_numpy()
