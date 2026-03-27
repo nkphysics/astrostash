@@ -22,6 +22,12 @@ dependencies = [
 [tool.setuptools.package-data]
 "astrostash" = ["schema/*.sql"]
 
+[tool.pytest.ini_options]
+markers = [
+    "table_schemas: validates HEASARC catalog table schemas for astrostash compatibility",
+]
+addopts = "-m 'not table_schemas'"
+
 [project.optional-dependencies]
 dev = [
     "build >= 0.10.0",
