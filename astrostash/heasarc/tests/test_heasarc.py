@@ -24,6 +24,7 @@ def setup():
     yield heasarc
 
 
+@pytest.mark.remote
 def test_list_catalogs():
     heasarc = Heasarc()
     cat_list_get = heasarc.list_catalogs()
@@ -44,6 +45,7 @@ def test_list_catalogs():
     os.remove("astrostash.db")
 
 
+@pytest.mark.remote
 def test_query_region():
     heasarc = Heasarc()
     pos = SkyCoord.from_name('ngc 3783')
@@ -58,6 +60,7 @@ def test_query_region():
     os.remove("astrostash.db")
 
 
+@pytest.mark.remote
 def test_query_object(copy_dir_setup):
     heasarc = Heasarc()
     init_query = heasarc.query_object("crab", catalog="nicermastr")
@@ -80,11 +83,13 @@ def test_query_object(copy_dir_setup):
     assert len(aql_x1) == 302
 
 
+@pytest.mark.remote
 def test_query_tap(setup):
     setup.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
     assert setup.ldb._check_table_exists("uhuru4") is True
 
 
+@pytest.mark.remote
 def test_locate_data(setup):
     crabdf = setup.query_object("PSR B0531+21", catalog="nicermastr")
     products = setup.locate_data(crabdf, "nicermastr")
@@ -95,6 +100,7 @@ def test_locate_data(setup):
     assert len(products["location"].dropna()) == 0
 
 
+@pytest.mark.remote
 def test_download_data(copy_dir_setup):
     heasarc = copy_dir_setup
     crabdf = heasarc.query_object("PSR B0531+21", catalog="nicermastr")

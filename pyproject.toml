@@ -25,8 +25,9 @@ dependencies = [
 [tool.pytest.ini_options]
 markers = [
     "table_schemas: validates HEASARC catalog table schemas for astrostash compatibility",
+    "remote: tests that require network access to HEASARC services",
 ]
-addopts = "-m 'not table_schemas'"
+addopts = "-m 'not table_schemas and not remote'"
 
 [project.optional-dependencies]
 dev = [
