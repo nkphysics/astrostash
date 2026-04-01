@@ -1,3 +1,22 @@
+# v0.2.0
+
+## New Features
+- Local spatial queries via `SQLiteDB.query_region` (cone, box, polygon, all-sky)
+- `mode` kwarg for `Heasarc.query_region` and `Heasarc.query_object` (standard / refresh / local)
+- `Heasarc.locate_data()` — find download links for data products
+- `Heasarc.download_data()` — download data products and track local paths
+- `local_data_paths` table for tracking downloaded data products
+- Local mirroring workflow — stash entire tables via `query_tap`, query offline with `mode='local'`
+
+## Improvements
+- NumPy-style docstrings across all public methods
+- Bulk inserts for response row ID pivots
+- Refactored dict operations (`del` → `pop`)
+
+## Documentation
+- New `docs/heasarc.md` — architecture, quickstart, local mirroring, API reference
+- Overhauled README with Documentation section and links
+
 # v0.1.1
 
 - Removed f-string queries from Heasarc #13
