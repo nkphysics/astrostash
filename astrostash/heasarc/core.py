@@ -1,9 +1,11 @@
+import logging
 import astroquery.heasarc
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astrostash import SQLiteDB
 import pandas as pd
 import pathlib as pl
+import time
 
 
 class Heasarc:
@@ -309,3 +311,45 @@ class Heasarc:
                 catalog,
                 row["rowid"],
                 f"{location}/{download_name}")
+
+    def stash_full_catalog(self, catalog: str,
+                           chunk_size: int = 20000,
+                           max_retries: int = 3) -> None:
+        """
+        Fetch an entire HEASARC catalog and stash it to the local database.
+
+        This method solves the DALOverflowWarning issue that occurs when
+        querying large catalogs with ``SELECT * FROM {catalog}`` by fetching
+        in chunks. After stashing, use ``query_region(..., mode='local')`` for
+        offline queries.
+
+        Parameters
+        ----------
+        catalog : str
+            Catalog table name (e.g., ``'nicermastr'``).
+        chunk_size : int, optional
+            Number of rows per query batch. Default is 20000.
+        """
+        if not self._check_catalog_exists(catalog):
+            raise ValueError(f"Catalog '{catalog}' does not exist at HEASARC")
+        count_result = self.aq.query_tap(
+            f"SELECT COUNT(*) FROM {catalog}").to_table()
+        total_rows = int(count_result['count'][0])
+        for offset in range(0, total_rows, chunk_size):
+            query = (f"SELECT TOP {chunk_size} * FROM {catalog} "
+                     f"OFFSET {offset}")
+            for attempt in range(max_retries):
+                try:
+                    self.query_tap(query, catalog, maxrec=chunk_size,
+                                   refresh=True)
+                    break
+                except (ConnectionError, TimeoutError, OSError) as e:
+                    if attempt == max_retries - 1:
+                        raise RuntimeError(
+                            f"Failed to fetch chunk at offset {offset} "
+                            f"after {max_retries} retries") from e
+                    logging.warning(
+                        f"Attempt {attempt + 1}/{max_retries} failed for "
+                        f"chunk at offset {offset}: {e}. "
+                        f"Retrying in {2 ** attempt} seconds...")
+                    time.sleep(2 ** attempt)

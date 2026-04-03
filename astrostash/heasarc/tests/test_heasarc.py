@@ -119,6 +119,16 @@ def test_download_data(copy_dir_setup):
     shutil.rmtree(expected_dir)
 
 
+@pytest.mark.remote
+def test_stash_full_catalog():
+    h = Heasarc()
+    h.stash_full_catalog("uhuru4", chunk_size=200)
+    assert h.ldb._check_table_exists("uhuru4")
+    result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
+    assert len(result) == 339
+    os.remove("astrostash.db")
+
+
 def test_query_region_local_cone(setup):
     pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
     result = setup.query_region(position=pos, catalog='nicermastr',
