@@ -71,7 +71,8 @@ Once stashed, they can be queried entirely offline.
 The workflow is two steps:
 
 1. **Stash the table** — Pull the entire catalog into your local database
-   using `query_tap`. This is a one-time operation for stable tables.
+   using `stash_full_catalog`. This is a one-time operation for stable tables.
+   For smaller or ad-hoc queries, `query_tap` can also be used.
 
 2. **Query locally** — Use `query_region` or `query_object` with
    `mode='local'` to search the stashed data with spatial filters. No
@@ -84,24 +85,28 @@ from astropy.coordinates import SkyCoord
 h = Heasarc("my_data.db")
 
 # Step 1: Stash the entire table (one-time, requires network)
-h.query_tap("SELECT * FROM uhuru4", catalog="uhuru4")
+h.stash_full_catalog("uhuru4")
 
 # Step 2: Query locally — no network needed
 pos = SkyCoord(ra=10.0, dec=20.0, unit="deg")
 results = h.query_region(position=pos, catalog="uhuru4",
                          radius="1deg", mode="local")
-print(len(results))
 
 # All spatial types work in local mode
 all_sky = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
 ```
+
+> **Warning:** For large catalogs, avoid using `query_tap` with
+> `SELECT * FROM catalog` — it can trigger `DALOverflowWarning` and
+> fail to return all rows. Use `stash_full_catalog` instead, which
+> fetches the catalog in chunks and handles retries automatically.
 
 The key difference from caching:
 
 - **Caching** (`mode='standard'`) — Stores the results of a specific query
   so the same query doesn't need to hit HEASARC again. The data is tied to
   that query's parameters.
-- **Mirroring** (`query_tap` + `mode='local'`) — Stores the entire table.
+- **Mirroring** (`stash_full_catalog` + `mode='local'`) — Stores the entire table.
   You can then run any spatial query against it locally, without any
   dependence on the HEASARC service.
 
@@ -257,6 +262,30 @@ Execute an ADQL query against the HEASARC Xamin TAP service.
 | `refresh` | `bool` | `False` | Force remote fetch |
 
 **Returns:** `pd.DataFrame` of query results.
+
+> **Note:** For full-catalog mirroring, prefer `stash_full_catalog` over
+> `query_tap` with `SELECT * FROM catalog`, especially for large tables.
+
+---
+
+#### `stash_full_catalog`
+
+```python
+stash_full_catalog(catalog, chunk_size=20000, max_retries=3) -> None
+```
+
+Fetch an entire HEASARC catalog and stash it to the local database in chunks.
+Solves the `DALOverflowWarning` issue that occurs when querying large catalogs
+with a single `SELECT * FROM catalog` query.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `catalog` | `str` | | Catalog table name (e.g., `'nicermastr'`) |
+| `chunk_size` | `int` | `20000` | Number of rows per query batch |
+| `max_retries` | `int` | `3` | Max retry attempts per chunk on network errors |
+
+**Returns:** `None`. After completion, use `query_region(..., mode='local')`
+for offline queries.
 
 ---
 
