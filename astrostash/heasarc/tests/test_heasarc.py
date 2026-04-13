@@ -1,4 +1,5 @@
 from astrostash.heasarc import Heasarc
+from astropy import units as u
 from astropy.coordinates import SkyCoord
 import os
 import pathlib as pl
@@ -172,10 +173,10 @@ def test_query_region_local_missing_position(setup):
                            radius='1deg')
 
 
-def test_query_region_local_missing_radius(setup):
+def test_query_region_local_default_radius(setup):
     pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
-    with pytest.raises(ValueError, match="radius is required"):
-        setup.query_region(position=pos, catalog='nicermastr', mode='local')
+    result = setup.query_region(position=pos, catalog='nicermastr', mode='local')
+    assert not result.empty
 
 
 def test_query_region_local_box(setup):
@@ -234,3 +235,19 @@ def test_query_region_invalid_mode(setup):
     with pytest.raises(ValueError, match="Unknown mode"):
         setup.query_region(position=pos, catalog='nicermastr',
                            radius='0.5deg', mode='bogus')
+
+
+def test_get_default_radius_from_meta(setup):
+    radius = setup._get_default_radius('nicermastr')
+    assert radius.unit == u.deg
+    expected = 15.0 * u.arcmin.to(u.deg)
+    assert radius.value == pytest.approx(expected, rel=1e-6)
+
+
+def test_query_region_local_override_default_radius(setup):
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    result_small = setup.query_region(
+        position=pos, catalog='nicermastr', radius='0.01deg', mode='local')
+    result_default = setup.query_region(
+        position=pos, catalog='nicermastr', mode='local')
+    assert len(result_small) < len(result_default)

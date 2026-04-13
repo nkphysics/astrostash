@@ -1,5 +1,6 @@
 import logging
 import astroquery.heasarc
+from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astrostash import SQLiteDB
@@ -76,6 +77,29 @@ class Heasarc:
         catalogs = self.list_catalogs()["name"].values
         return catalog in catalogs
 
+    def _get_default_radius(self, catalog: str):
+        """
+        Get the default search radius for a catalog.
+
+        First attempts to retrieve from astroquery's cached metadata, then
+        falls back to the class default if unavailable.
+
+        Parameters
+        ----------
+        catalog : str
+            Name of the catalog.
+
+        Returns
+        -------
+        `~astropy.units.Quantity`
+            The default radius in degrees.
+        """
+        try:
+            radius = self.aq.get_default_radius(catalog)
+            return radius.to(u.deg)
+        except (IndexError, KeyError):
+            return (0.1 * u.deg)
+
     def query_region(self, position=None, catalog=None,
                      radius=None, refresh_rate=None,
                      mode='standard', spatial='cone',
@@ -127,6 +151,8 @@ class Heasarc:
         if mode == 'local':
             if catalog is None:
                 raise ValueError("catalog is required for local queries")
+            if radius is None and spatial == 'cone':
+                radius = self._get_default_radius(catalog)
             return self.ldb.query_region(
                 table=catalog,
                 position=position,
