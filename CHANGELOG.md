@@ -1,3 +1,11 @@
+# v0.2.1
+
+## Bug Fixes
+- Added default radius for cone queries in local mode — fixes ValueError when radius not specified (#22)
+
+## Improvements
+- Created `Heasarc.stash_full_catalog` to fetch entire catalogs in chunks to avoid DALOverflowWarnings (#21)
+
 # v0.2.0
 
 ## New Features
