@@ -354,7 +354,7 @@ class SQLiteDB:
                     (nicermastr, heasarc_catalog_list)
         """
         self.cursor.executemany(
-            """ INSERT INTO response_rowid_pivot (
+            """ INSERT OR IGNORE INTO response_rowid_pivot (
                 responseid,
                 rowid
             )
@@ -385,8 +385,19 @@ class SQLiteDB:
             rid = self.insert_response(response_hash)
             self.insert_query_response_pivot(qid, rid)
             self.insert_response_rowid_pivot(rid, df[idcol].tolist())
-        elif self._check_query_response_link(qid, rid[0]) == 0:
+        else:
             self.insert_query_response_pivot(qid, rid[0])
+            existing_rows = pd.read_sql(
+                """SELECT rowid FROM response_rowid_pivot
+                   WHERE responseid = :rid;""",
+                self.conn,
+                params={"rid": rid[0]})
+            if not existing_rows.empty:
+                new_rowids = set(df[idcol].astype(str).tolist())
+                stored_rowids = set(existing_rows["rowid"].tolist())
+                missing_rowids = new_rowids - stored_rowids
+                if missing_rowids:
+                    self.insert_response_rowid_pivot(rid[0], list(missing_rowids))
 
     def ingest_table(self, table, name, if_exists="append") -> None:
         """
@@ -648,7 +659,8 @@ class SQLiteDB:
                      spatial: str = 'cone',
                      radius=None,
                      width=None,
-                     polygon: list = None) -> pd.DataFrame:
+                     polygon: list = None,
+                     idcol: str = None) -> pd.DataFrame:
         """
         Queries a local database table for rows within a specified
         astronomical region
@@ -683,6 +695,28 @@ class SQLiteDB:
         pd.DataFrame, rows from the table that fall within the specified
                       spatial region
         """
+        query_params = {
+            'table': table,
+            'spatial': spatial,
+            'radius': str(radius) if radius is not None else None,
+            'width': str(width) if width is not None else None,
+            'polygon': polygon
+        }
+        if hasattr(position, "to_string"):
+            query_params['position'] = position.to_string()
+        else:
+            position
+        query_params.pop("refresh_rate", None)
+        query_hash = sha256sum(query_params)
+        qdf = self.get_query(query_hash)
+        if not qdf.empty:
+            try:
+                qid = int(qdf["id"].iloc[0])
+                cached_result = self._get_stashed_rows(table, qid, '__row')
+                if not cached_result.empty:
+                    return cached_result
+            except (IndexError, KeyError):
+                pass
         self._validate_spatial_table(table)
         df = pd.read_sql_table(table, self.aconn)
         if df.empty:
@@ -690,49 +724,53 @@ class SQLiteDB:
         ra = df['ra'].to_numpy()
         dec = df['dec'].to_numpy()
 
+        result = df
         if spatial == 'all-sky':
-            return df
-
-        if spatial in ('cone', 'box'):
+            pass
+        elif spatial in ('cone', 'box'):
             if position is None:
                 raise ValueError(
                     "position is required for cone and box queries")
             coord = self._normalize_position(position)
             cra, cdec = coord.ra.deg, coord.dec.deg
 
-        if spatial == 'cone':
-            if radius is None:
-                raise ValueError("radius is required for cone queries")
-            r_deg = self._parse_angle(radius)
-            ra_rad = np.radians(ra)
-            dec_rad = np.radians(dec)
-            cra_rad = np.radians(cra)
-            cdec_rad = np.radians(cdec)
-            dlat = dec_rad - cdec_rad
-            dlon = ra_rad - cra_rad
-            a = np.sin(dlat / 2) ** 2 + \
-                np.cos(cdec_rad) * np.cos(dec_rad) * \
-                np.sin(dlon / 2) ** 2
-            dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
-            mask = dist_deg <= r_deg
-            return df[mask].reset_index(drop=True)
-
-        if spatial == 'box':
-            if width is None:
-                raise ValueError("width is required for box queries")
-            w_deg = self._parse_angle(width)
-            half = w_deg / 2.0
-            mask = ((ra >= cra - half) & (ra <= cra + half) &
-                    (dec >= cdec - half) & (dec <= cdec + half))
-            return df[mask].reset_index(drop=True)
-
-        if spatial == 'polygon':
+            if spatial == 'cone':
+                if radius is None:
+                    raise ValueError("radius is required for cone queries")
+                r_deg = self._parse_angle(radius)
+                ra_rad = np.radians(ra)
+                dec_rad = np.radians(dec)
+                cra_rad = np.radians(cra)
+                cdec_rad = np.radians(cdec)
+                dlat = dec_rad - cdec_rad
+                dlon = ra_rad - cra_rad
+                a = np.sin(dlat / 2) ** 2 + \
+                    np.cos(cdec_rad) * np.cos(dec_rad) * \
+                    np.sin(dlon / 2) ** 2
+                dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
+                mask = dist_deg <= r_deg
+                result = df[mask].reset_index(drop=True)
+            elif spatial == 'box':
+                if width is None:
+                    raise ValueError("width is required for box queries")
+                w_deg = self._parse_angle(width)
+                half = w_deg / 2.0
+                mask = ((ra >= cra - half) & (ra <= cra + half) &
+                        (dec >= cdec - half) & (dec <= cdec + half))
+                result = df[mask].reset_index(drop=True)
+        elif spatial == 'polygon':
             if polygon is None:
                 raise ValueError("polygon is required for polygon queries")
             inside = self._point_in_polygon(ra, dec, polygon)
-            return df[inside].reset_index(drop=True)
+            result = df[inside].reset_index(drop=True)
+        else:
+            raise ValueError(f"Unknown spatial mode: '{spatial}'")
 
-        raise ValueError(f"Unknown spatial mode: '{spatial}'")
+        if qdf.empty:
+            qid = self.insert_query(query_hash, None)
+            self._ingest_response_and_links(result, qid, '__row')
+
+        return result
 
     def close(self):
         """
