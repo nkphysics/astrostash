@@ -34,3 +34,7 @@ CREATE TABLE IF NOT EXISTS local_data_paths (
     location TEXT NOT NULL,
     UNIQUE (catalog, rowid, location)
 );
+
+CREATE INDEX IF NOT EXISTS idx_query_response ON query_response_pivot(queryid);
+CREATE INDEX IF NOT EXISTS idx_query_response_id ON query_response_pivot(responseid);
+CREATE INDEX IF NOT EXISTS idx_response_rowid ON response_rowid_pivot(rowid);
