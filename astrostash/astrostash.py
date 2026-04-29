@@ -541,15 +541,23 @@ class SQLiteDB:
         Returns:
         pd.DataFrame, rows of a catalog associated with a query
         """
-        rows = pd.read_sql(
-            """SELECT rowid FROM response_rowid_pivot rrp
-               INNER JOIN query_response_pivot qrp
-               ON qrp.responseid = rrp.responseid
-               WHERE qrp.queryid = :queryid;""",
-            self.conn,
-            params={"queryid": qid})
-        df = pd.read_sql_table(catalog, self.aconn)
-        return df[df[idcol].isin(rows["rowid"])]
+        if not self._check_table_exists(catalog):
+            raise ValueError(f"Catalog: {catalog} does not exist in the db")
+        valid_cols = self.get_columns(catalog)
+        if idcol not in valid_cols:
+            raise ValueError(f"Column {idcol} does not exist in {catalog}")
+        else:
+            sql = f"""
+                    SELECT c.* FROM {catalog} c
+                    INNER JOIN response_rowid_pivot rrp ON
+                    c.{idcol} = rrp.rowid
+                    WHERE rrp.responseid = (
+                        SELECT responseid FROM query_response_pivot
+                        WHERE queryid = :queryid
+                        ORDER BY responseid DESC
+                        LIMIT 1
+                    );"""
+            return pd.read_sql(sql, self.conn, params={"queryid": qid})
 
     def get_local_data_paths_by_catalog(self, catalog: str) -> pd.DataFrame:
         """
