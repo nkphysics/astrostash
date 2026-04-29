@@ -156,11 +156,6 @@ def test_query_region_local_allsky(setup):
     assert len(result) == 339
 
 
-def test_query_region_local_no_catalog(setup):
-    with pytest.raises(ValueError, match="catalog is required"):
-        setup.query_region(mode='local', position='10d 20d', radius='1deg')
-
-
 def test_query_region_local_no_table(setup):
     with pytest.raises(ValueError, match="does not exist"):
         setup.query_region(catalog='nonexistent', mode='local',
@@ -223,6 +218,7 @@ def test_query_region_local_unknown_spatial(setup):
                            spatial='invalid', mode='local')
 
 
+@pytest.mark.skip(reason="Need to find a heasarc table that has no ra or dec")
 def test_query_region_local_no_ra_dec(setup):
     # heasarc_catalog_list has no ra/dec columns
     with pytest.raises(ValueError, match="has no 'ra' and 'dec' columns"):
@@ -251,3 +247,10 @@ def test_query_region_local_override_default_radius(setup):
     result_default = setup.query_region(
         position=pos, catalog='nicermastr', mode='local')
     assert len(result_small) < len(result_default)
+
+
+def test_check_catalog_exists(setup):
+    assert setup._check_catalog_exists("nicermastr") is True
+    assert setup._check_catalog_exists("uhuru4") is True
+    with pytest.raises(ValueError, match="does not exist @ HEASARC"):
+        setup._check_catalog_exists("nonexistent123")

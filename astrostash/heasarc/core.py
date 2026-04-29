@@ -72,10 +72,12 @@ class Heasarc:
         Returns
         -------
         bool
-            True if the catalog exists at the HEASARC, False otherwise.
+            True if the catalog exists at the HEASARC
         """
         catalogs = self.list_catalogs()["name"].values
-        return catalog in catalogs
+        if catalog not in catalogs:
+            raise ValueError(f"Catalog: {catalog} does not exist @ HEASARC")
+        return True
 
     def _get_default_radius(self, catalog: str):
         """
@@ -148,9 +150,8 @@ class Heasarc:
         pd.DataFrame
             DataFrame of catalog records around the specified region.
         """
-        if mode == 'local':
-            if catalog is None:
-                raise ValueError("catalog is required for local queries")
+        catalog_existance = self._check_catalog_exists(catalog)
+        if mode == 'local' and catalog_existance is True:
             if radius is None and spatial == 'cone':
                 radius = self._get_default_radius(catalog)
             return self.ldb.query_region(
@@ -159,7 +160,8 @@ class Heasarc:
                 spatial=spatial,
                 radius=radius,
                 width=width,
-                polygon=polygon)
+                polygon=polygon
+            )
         if mode not in ('standard', 'refresh'):
             raise ValueError(
                 f"Unknown mode: '{mode}'. "
@@ -172,7 +174,7 @@ class Heasarc:
         params.pop("width", None)
         params.pop("polygon", None)
         params.pop("refresh", None)
-        if self._check_catalog_exists(catalog):
+        if catalog_existance:
             return self.ldb.fetch_sync(self.aq.query_region,
                                        catalog,
                                        params,
