@@ -1,3 +1,12 @@
+# v0.2.2
+
+## Improvements
+- Added caching support for `SQLiteDB.query_region` in local mode (#26)
+- Added indexes to pivot tables for faster cache lookups (#26)
+
+## Refactors
+- Reverted from pandas table filtering to an optimized sqlite query in `SQLiteDB._get_stashed_rows` (#26)
+
 # v0.2.1
 
 ## Bug Fixes
