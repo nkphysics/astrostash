@@ -492,38 +492,35 @@ class SQLiteDB:
     def _stash_table(self, df: pd.DataFrame,
                      table_name: str, idcol: str) -> None:
         """
-        Merges the results of a query into a the designated table in
-        the database (if exists), or creates a new table and ingests the new
-        data
+        Merges the results of a query into the designated table in the
+        database (if exists), or creates a new table and ingests the new data.
 
         Parameters
         ----------
         df: pd.DataFrame, frame with response data from a query
 
-        table_name: str, name of the table/catlog in the database
+        table_name: str, name of the table/catalog in the database
 
         idcol: str, column name of the column to be used for id info
         """
+        if idcol not in df.columns:
+            raise ValueError(
+                f"idcol '{idcol}' not found in response DataFrame. "
+                f"Available columns: {list(df.columns)}")
+
         ta_exists = self._check_table_exists(table_name)
-        if ta_exists is True:
-            dd1 = pd.read_sql_table(table_name, self.aconn)
-            dd2 = pd.merge(df, dd1, how="left", indicator=True)
-            changes = dd2[
-                dd2["_merge"] == "left_only"
-                ].drop(columns="_merge")
-            if len(changes) > 0:
-                diffs = dd1[dd1[idcol].isin(changes[idcol])]
-                if len(diffs) > 0:
-                    idxs = diffs.index[0]
-                    dd1 = dd1.drop(idxs)
-                updated_table = pd.merge(dd1, df, how="outer")
-                self.ingest_table(updated_table,
-                                  table_name,
-                                  if_exists="replace")
-            else:
-                self.ingest_table(changes, table_name)
-        else:
+        if not ta_exists:
             self.ingest_table(df, table_name)
+            return
+
+        dd1 = pd.read_sql_table(table_name, self.aconn)
+        old_ids = set(dd1[idcol].astype(str))
+        new_ids = set(df[idcol].astype(str))
+        overlapping_ids = old_ids & new_ids
+        if overlapping_ids:
+            dd1 = dd1[~dd1[idcol].astype(str).isin(overlapping_ids)]
+        updated_table = pd.concat([dd1, df], ignore_index=True)
+        self.ingest_table(updated_table, table_name, if_exists="replace")
 
     def _get_stashed_rows(self, catalog: str,
                           qid: int, idcol: str) -> pd.DataFrame:

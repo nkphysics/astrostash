@@ -130,6 +130,42 @@ def test_stash_full_catalog():
     os.remove("astrostash.db")
 
 
+@pytest.mark.remote
+def test_stash_cache_then_mirror():
+    h = Heasarc()
+    # Cache First
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    h.query_region(position=pos, catalog='uhuru4', radius='5deg')
+    assert h.ldb._check_table_exists("uhuru4")
+    cached_count = len(
+        h.query_region(catalog='uhuru4', spatial='all-sky', mode='local'))
+    assert cached_count < 339
+    # Mirror full catalog
+    h.stash_full_catalog("uhuru4", chunk_size=200)
+    result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
+    assert len(result) == 339
+    assert result["__row"].is_unique
+    os.remove("astrostash.db")
+
+
+@pytest.mark.remote
+def test_stash_mirror_then_cache():
+    h = Heasarc()
+    # Mirror first
+    h.stash_full_catalog("uhuru4", chunk_size=200)
+    assert h.ldb._check_table_exists("uhuru4")
+    full_count = len(
+        h.query_region(catalog="uhuru4", spatial="all-sky", mode="local"))
+    assert full_count == 339
+    # Cache second
+    pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
+    h.query_region(position=pos, catalog='uhuru4', radius='5deg')
+    result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
+    assert len(result) == 339
+    assert result["__row"].is_unique
+    os.remove("astrostash.db")
+
+
 def test_query_region_local_cone(setup):
     pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
     result = setup.query_region(position=pos, catalog='nicermastr',
