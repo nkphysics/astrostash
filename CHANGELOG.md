@@ -1,3 +1,8 @@
+# v0.2.3
+
+## Bug Fixes
+- Fixed duplicate rows when caching via `query_region` then mirroring the full catalog (or vice versa) via `Heasarc.stash_full_catalog` by using ID-based deduplication (#27)
+
 # v0.2.2
 
 ## Improvements
