@@ -226,14 +226,9 @@ class SQLiteDB:
         Returns:
         list, names of all columns from the specified table
         """
-        if self._check_table_exists(tablename):
-            self.cursor.execute(
-                "SELECT name FROM pragma_table_info(:tablename);",
-                {"tablename": tablename}
-                )
-            return [i[0] for i in self.cursor.fetchall()]
-        else:
+        if not self._check_table_exists(tablename):
             raise ValueError(f"{tablename} does not exist in {self.db_name}")
+        return [col['name'] for col in inspect(self.aconn).get_columns(tablename)]
 
     def insert_query(self, query_hash: str, refresh_rate: int | None) -> int:
         """
