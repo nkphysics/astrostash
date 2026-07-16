@@ -1,6 +1,6 @@
 import pathlib as pl
 import sqlite3
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine, inspect
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -73,6 +73,8 @@ class SQLiteDB:
         self.aconn = create_engine(f"sqlite:///{self.db_name}")
         self.cursor = self.conn.cursor()
         self._create_schema()
+        self.metadata = MetaData()
+        self.metadata.reflect(self.aconn)
 
     def _get_db_file(self, dbpath=None) -> pl.Path:
         """
@@ -140,11 +142,7 @@ class SQLiteDB:
         Returns:
         bool, True if table exists (should be self explanatory)
         """
-        self.cursor.execute("""SELECT 1 FROM sqlite_master
-                               WHERE type='table' AND
-                               name = :name LIMIT 1;""",
-                            {"name": name})
-        return self.cursor.fetchone() is not None
+        return inspect(self.aconn).has_table(name)
 
     def _validate_spatial_table(self, table: str) -> None:
         """
