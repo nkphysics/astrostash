@@ -1,4 +1,5 @@
 import pathlib as pl
+import sqlite3
 from sqlalchemy import MetaData, create_engine, inspect, text
 from sqlalchemy.dialects.sqlite import insert
 import pandas as pd
@@ -10,6 +11,18 @@ import astropy
 from astropy.coordinates import SkyCoord, Angle
 from astropy import units as u
 from importlib.resources import files
+
+
+def _adapt_date_iso(val):
+    return val.isoformat()
+
+
+def _adapt_datetime_iso(val):
+    return val.isoformat(" ")
+
+
+sqlite3.register_adapter(date, _adapt_date_iso)
+sqlite3.register_adapter(datetime, _adapt_datetime_iso)
 
 
 def sha256sum(query_dict: dict) -> str:
