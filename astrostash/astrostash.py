@@ -344,17 +344,14 @@ class SQLiteDB:
                     (obsid, name, doi) of an external table
                     (nicermastr, heasarc_catalog_list)
         """
-        self.cursor.executemany(
-            """ INSERT OR IGNORE INTO response_rowid_pivot (
-                responseid,
-                rowid
-            )
-            VALUES (
-                :responseid,
-                :rowid
-            );""",
-            [{"responseid": responseid, "rowid": r} for r in rowid])
-        self.conn.commit()
+        stmt = (
+            insert(self.metadata.tables['response_rowid_pivot'])
+            .values(responseid=responseid, rowid=None)
+            .on_conflict_do_nothing()
+        )
+        values = [{"responseid": responseid, "rowid": r} for r in rowid]
+        self.sconn.execute(stmt, values)
+        self.sconn.commit()
 
     def _ingest_response_and_links(self, df: pd.DataFrame, qid: int,
                                    idcol: str) -> None:
