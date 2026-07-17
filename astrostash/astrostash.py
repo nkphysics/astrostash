@@ -1,6 +1,6 @@
 import pathlib as pl
 import sqlite3
-from sqlalchemy import MetaData, create_engine, inspect
+from sqlalchemy import MetaData, create_engine, inspect, text
 from sqlalchemy.dialects.sqlite import insert
 import pandas as pd
 import numpy as np
@@ -125,14 +125,15 @@ class SQLiteDB:
         Returns:
         int, refresh rate in days or None if no refresh rate exists
         """
-        self.cursor.execute("""SELECT refresh_rate FROM queries
-                               WHERE id = :qid;""",
-                            {"qid": qid})
-        refresh_rate = self.cursor.fetchone()
+        result = self.sconn.execute(
+            text("SELECT refresh_rate FROM queries WHERE id = :qid"),
+            {"qid": qid}
+        )
+        row = result.fetchone()
         try:
-            return refresh_rate[0]
+            return row[0]
         except TypeError:
-            return refresh_rate
+            return row
 
     def _check_table_exists(self, name: str) -> bool:
         """
