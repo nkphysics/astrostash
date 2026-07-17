@@ -108,11 +108,11 @@ class SQLiteDB:
         pd.DataFrame, reference info for the query (if record exists)
                       empty DataFrame if not queryied before
         """
-        stashref = pd.read_sql("""SELECT * FROM queries
-                                  WHERE hash = :query_hash""",
-                               self.conn,
-                               params={"query_hash": query_hash})
-        return stashref
+        return pd.read_sql(
+            text("SELECT * FROM queries WHERE hash = :query_hash"),
+            self.sconn,
+            params={"query_hash": query_hash}
+        )
 
     def get_refresh_rate(self, qid: int) -> int | None:
         """
@@ -274,10 +274,11 @@ class SQLiteDB:
         int or None, id associated with hash that already exists in the
                      database, None if no record of the response hash exists
         """
-        self.cursor.execute("""SELECT id FROM responses
-                               WHERE hash = :hash;""",
-                            {"hash": rhash})
-        return self.cursor.fetchone()
+        result = self.sconn.execute(
+            text("SELECT id FROM responses WHERE hash = :hash"),
+            {"hash": rhash}
+        )
+        return result.fetchone()
 
     def insert_response(self, response_hash: str) -> int:
         """
@@ -324,13 +325,14 @@ class SQLiteDB:
         Returns:
         int, 1 if exists 0 if it does not exist
         """
-        self.cursor.execute(
-            """SELECT EXISTS(
+        result = self.sconn.execute(
+            text("""SELECT EXISTS(
                 SELECT 1 FROM query_response_pivot
                 WHERE queryid = :qid AND responseid = :rid
-            );""",
-            {"qid": qid, "rid": rid})
-        return self.cursor.fetchone()[0]
+            )"""),
+            {"qid": qid, "rid": rid}
+        )
+        return result.fetchone()[0]
 
     def insert_response_rowid_pivot(self,
                                     responseid: int,
@@ -386,7 +388,10 @@ class SQLiteDB:
                 stored_rowids = set(existing_rows["rowid"].tolist())
                 missing_rowids = new_rowids - stored_rowids
                 if missing_rowids:
-                    self.insert_response_rowid_pivot(rid[0], list(missing_rowids))
+                    self.insert_response_rowid_pivot(
+                        rid[0],
+                        list(missing_rowids)
+                    )
 
     def ingest_table(self, table, name, if_exists="append") -> None:
         """
@@ -417,14 +422,15 @@ class SQLiteDB:
         Returns:
         int, query id which was updated
         """
-        self.cursor.execute("""UPDATE queries
-                               SET last_refreshed = :last_refreshed
-                               WHERE id = :id""",
-                            {"last_refreshed": datetime.today()
-                                                       .strftime('%Y-%m-%d'),
-                             "id": qid})
-        self.conn.commit()
-        return self.cursor.lastrowid
+        self.sconn.execute(
+            text("""UPDATE queries
+                    SET last_refreshed = :last_refreshed
+                    WHERE id = :id"""),
+            {"last_refreshed": datetime.today().strftime('%Y-%m-%d'),
+             "id": qid}
+        )
+        self.sconn.commit()
+        return qid
 
     def update_refresh_rate(self, qid: int, refresh_rate: int | None) -> int:
         """
@@ -439,13 +445,15 @@ class SQLiteDB:
         Returns:
         int, last accessed queryid that was updated
         """
-        self.cursor.execute("""UPDATE queries
-                               SET refresh_rate = :refresh_rate
-                               WHERE id = :id""",
-                            {"refresh_rate": refresh_rate,
-                             "id": qid})
-        self.conn.commit()
-        return self.cursor.lastrowid
+        self.sconn.execute(
+            text("""UPDATE queries
+                    SET refresh_rate = :refresh_rate
+                    WHERE id = :id"""),
+            {"refresh_rate": refresh_rate,
+             "id": qid}
+        )
+        self.sconn.commit()
+        return qid
 
     def _get_queryid(self, qdf: pd.DataFrame, refresh: bool,
                      refresh_rate: int | None) -> tuple:
