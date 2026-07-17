@@ -1,6 +1,7 @@
 import pathlib as pl
 import sqlite3
 from sqlalchemy import MetaData, create_engine, inspect
+from sqlalchemy.dialects.sqlite import insert
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -71,6 +72,7 @@ class SQLiteDB:
         self.db_name = self._get_db_file(db_name)
         self.conn = sqlite3.connect(self.db_name)
         self.aconn = create_engine(f"sqlite:///{self.db_name}")
+        self.sconn = self.aconn.connect()
         self.cursor = self.conn.cursor()
         self._create_schema()
         self.metadata = MetaData()
@@ -301,17 +303,13 @@ class SQLiteDB:
 
         rid: int, response id from the responses table
         """
-        self.cursor.execute(
-            """ INSERT OR IGNORE INTO query_response_pivot (
-                queryid,
-                responseid
-            )
-            VALUES (
-                :qid,
-                :rid
-            );""",
-            {"qid": qid, "rid": rid})
-        self.conn.commit()
+        stmt = (
+            insert(self.metadata.tables['query_response_pivot'])
+            .values(queryid=qid, responseid=rid)
+            .on_conflict_do_nothing()
+        )
+        self.sconn.execute(stmt)
+        self.sconn.commit()
 
     def _check_query_response_link(self, qid: int, rid: int) -> int:
         """
