@@ -1,10 +1,9 @@
 import pathlib as pl
-import sqlite3
 from sqlalchemy import MetaData, create_engine, inspect, text
 from sqlalchemy.dialects.sqlite import insert
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, date
 import hashlib
 import json
 import astropy
@@ -70,10 +69,8 @@ def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
 class SQLiteDB:
     def __init__(self, db_name=None):
         self.db_name = self._get_db_file(db_name)
-        self.conn = sqlite3.connect(self.db_name)
         self.aconn = create_engine(f"sqlite:///{self.db_name}")
         self.sconn = self.aconn.connect()
-        self.cursor = self.conn.cursor()
         self._create_schema()
         self.metadata = MetaData()
         self.metadata.reflect(self.aconn)
@@ -95,7 +92,11 @@ class SQLiteDB:
         Creates initial schema for the database
         """
         schema = files('astrostash.schema').joinpath('base.sql').read_text()
-        self.cursor.executescript(schema)
+        for statement in schema.split(';'):
+            statement = statement.strip()
+            if statement:
+                self.sconn.execute(text(statement))
+        self.sconn.commit()
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
         """
@@ -246,22 +247,17 @@ class SQLiteDB:
         Returns:
         int, id for the specific query
         """
-        self.cursor.execute("""
-            INSERT INTO queries (
-                hash,
-                last_refreshed,
-                refresh_rate
+        stmt = (
+            insert(self.metadata.tables['queries'])
+            .values(
+                hash=query_hash,
+                last_refreshed=date.today(),
+                refresh_rate=refresh_rate
             )
-            VALUES (
-                :hash,
-                :last_refreshed,
-                :refresh_rate
-            );""", {"hash": query_hash,
-                    "last_refreshed": datetime.today().strftime('%Y-%m-%d'),
-                    "refresh_rate": refresh_rate}
-            )
-        self.conn.commit()
-        return self.cursor.lastrowid
+        )
+        result = self.sconn.execute(stmt)
+        self.sconn.commit()
+        return result.inserted_primary_key[0]
 
     def _get_response_id(self, rhash: str) -> int | None:
         """
@@ -290,11 +286,13 @@ class SQLiteDB:
         Returns:
         int, id associated with the response after insertion
         """
-        self.cursor.execute(
-            """INSERT INTO responses (hash) VALUES (:hash);""",
-            {"hash": response_hash})
-        self.conn.commit()
-        return self.cursor.lastrowid
+        stmt = (
+            insert(self.metadata.tables['responses'])
+            .values(hash=response_hash)
+        )
+        result = self.sconn.execute(stmt)
+        self.sconn.commit()
+        return result.inserted_primary_key[0]
 
     def insert_query_response_pivot(self, qid: int, rid: int) -> None:
         """
@@ -381,7 +379,7 @@ class SQLiteDB:
             existing_rows = pd.read_sql(
                 """SELECT rowid FROM response_rowid_pivot
                    WHERE responseid = :rid;""",
-                self.conn,
+                self.sconn,
                 params={"rid": rid[0]})
             if not existing_rows.empty:
                 new_rowids = set(df[idcol].astype(str).tolist())
@@ -407,10 +405,9 @@ class SQLiteDB:
                                   (fail, replace, or append)
         """
         table.to_sql(name,
-                     self.conn,
+                     self.aconn,
                      if_exists=if_exists,
                      index=False)
-        self.conn.commit()
 
     def update_last_refreshed(self, qid: int) -> int:
         """
@@ -426,7 +423,7 @@ class SQLiteDB:
             text("""UPDATE queries
                     SET last_refreshed = :last_refreshed
                     WHERE id = :id"""),
-            {"last_refreshed": datetime.today().strftime('%Y-%m-%d'),
+            {"last_refreshed": date.today(),
              "id": qid}
         )
         self.sconn.commit()
@@ -551,7 +548,7 @@ class SQLiteDB:
                         ORDER BY responseid DESC
                         LIMIT 1
                     );"""
-            return pd.read_sql(sql, self.conn, params={"queryid": qid})
+            return pd.read_sql(sql, self.sconn, params={"queryid": qid})
 
     def get_local_data_paths_by_catalog(self, catalog: str) -> pd.DataFrame:
         """
@@ -566,7 +563,7 @@ class SQLiteDB:
         pd.DataFrame, rows of local_data_paths for a the specified catalog
         """
         query = "SELECT * FROM local_data_paths WHERE catalog = :catalog"
-        df = pd.read_sql(query, self.conn, params={"catalog": catalog})
+        df = pd.read_sql(text(query), self.sconn, params={"catalog": catalog})
         return df
 
     def insert_local_data_path(self, catalog: str,
@@ -595,7 +592,6 @@ class SQLiteDB:
         )
         result = self.sconn.execute(stmt)
         self.sconn.commit()
-        self.conn.commit()
 
         if result.inserted_primary_key[0] is not None:
             return result.inserted_primary_key[0]
@@ -779,4 +775,5 @@ class SQLiteDB:
         """
         Close the database connection.
         """
-        return self.conn.close()
+        self.sconn.close()
+        self.aconn.dispose()
