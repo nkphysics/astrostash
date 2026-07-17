@@ -579,19 +579,20 @@ class SQLiteDB:
         -------
         int, id for the record of the data path location
         """
-        query = """INSERT OR IGNORE INTO local_data_paths (
-                        catalog,
-                        rowid,
-                        location)
-                   VALUES (
-                        :catalog,
-                        :rowid,
-                        :location)"""
-        self.cursor.execute(query, {"catalog": catalog,
-                                    "rowid": rowid,
-                                    "location": location})
+        stmt = (
+            insert(self.metadata.tables['local_data_paths'])
+            .values(catalog=catalog, rowid=rowid, location=location)
+            .on_conflict_do_nothing()
+        )
+        result = self.sconn.execute(stmt)
+        self.sconn.commit()
         self.conn.commit()
-        return self.cursor.lastrowid
+
+        if result.inserted_primary_key[0] is not None:
+            return result.inserted_primary_key[0]
+
+        existing = self.get_local_data_paths_by_catalog(catalog)
+        return int(existing[existing['rowid'] == str(rowid)]['id'].iloc[0])
 
     def fetch_sync(self, query_func, table_name: str,
                    query_params: dict,
