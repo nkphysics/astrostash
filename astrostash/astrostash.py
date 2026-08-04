@@ -1,7 +1,7 @@
 import pathlib as pl
 import sqlite3
+from abc import ABC, abstractmethod
 from sqlalchemy import MetaData, create_engine, inspect, text
-from sqlalchemy.dialects.sqlite import insert
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
@@ -79,37 +79,33 @@ def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
     return need
 
 
-class SQLiteDB:
-    def __init__(self, db_name=None):
-        self.db_name = self._get_db_file(db_name)
-        self.aconn = create_engine(f"sqlite:///{self.db_name}")
-        self.sconn = self.aconn.connect()
-        self._create_schema()
-        self.metadata = MetaData()
-        self.metadata.reflect(self.aconn)
+class BaseDB(ABC):
 
-    def _get_db_file(self, dbpath=None) -> pl.Path:
-        """
-        Gets or makes a path object for a sqlite database
+    @property
+    @abstractmethod
+    def _dialect_insert(self):
+        """Return the dialect-specific insert function."""
+        pass
 
-        Parameters:
-        dbpath: optional, None or str, input path to database
-        """
-        if dbpath is None:
-            return pl.Path("astrostash.db").resolve()
-        else:
-            return pl.Path(dbpath).resolve()
-
+    @abstractmethod
     def _create_schema(self):
-        """
-        Creates initial schema for the database
-        """
-        schema = files('astrostash.schema').joinpath('base.sql').read_text()
-        for statement in schema.split(';'):
-            statement = statement.strip()
-            if statement:
-                self.sconn.execute(text(statement))
-        self.sconn.commit()
+        """Load and execute the dialect-specific schema file."""
+        pass
+
+    @abstractmethod
+    def _check_table_exists(self, name: str) -> bool:
+        """Check if a table exists in the database."""
+        pass
+
+    @abstractmethod
+    def get_columns(self, tablename: str) -> list:
+        """Get column names for a table."""
+        pass
+
+    @abstractmethod
+    def close(self):
+        """Close the database connection."""
+        pass
 
     def get_query(self, query_hash: str) -> pd.DataFrame:
         """
@@ -148,18 +144,6 @@ class SQLiteDB:
             return row[0]
         except TypeError:
             return row
-
-    def _check_table_exists(self, name: str) -> bool:
-        """
-        Checks to ensure that a user specified table exists in the database
-
-        Parameters:
-        name: str, name of table to check if it exists
-
-        Returns:
-        bool, True if table exists (should be self explanatory)
-        """
-        return inspect(self.aconn).has_table(name)
 
     def _validate_spatial_table(self, table: str) -> None:
         """
@@ -233,20 +217,6 @@ class SQLiteDB:
             inside ^= cond
         return inside
 
-    def get_columns(self, tablename: str) -> list:
-        """
-        Gets all the column names for a specified table
-
-        Parameters:
-        tablename: str, name of table to get the columns from
-
-        Returns:
-        list, names of all columns from the specified table
-        """
-        if not self._check_table_exists(tablename):
-            raise ValueError(f"{tablename} does not exist in {self.db_name}")
-        return [col['name'] for col in inspect(self.aconn).get_columns(tablename)]
-
     def insert_query(self, query_hash: str, refresh_rate: int | None) -> int:
         """
         Inserts info related to a query into the queries table
@@ -261,7 +231,7 @@ class SQLiteDB:
         int, id for the specific query
         """
         stmt = (
-            insert(self.metadata.tables['queries'])
+            self._dialect_insert(self.metadata.tables['queries'])
             .values(
                 hash=query_hash,
                 last_refreshed=date.today(),
@@ -300,7 +270,7 @@ class SQLiteDB:
         int, id associated with the response after insertion
         """
         stmt = (
-            insert(self.metadata.tables['responses'])
+            self._dialect_insert(self.metadata.tables['responses'])
             .values(hash=response_hash)
         )
         result = self.sconn.execute(stmt)
@@ -317,7 +287,7 @@ class SQLiteDB:
         rid: int, response id from the responses table
         """
         stmt = (
-            insert(self.metadata.tables['query_response_pivot'])
+            self._dialect_insert(self.metadata.tables['query_response_pivot'])
             .values(queryid=qid, responseid=rid)
             .on_conflict_do_nothing()
         )
@@ -359,7 +329,7 @@ class SQLiteDB:
                     (nicermastr, heasarc_catalog_list)
         """
         stmt = (
-            insert(self.metadata.tables['response_rowid_pivot'])
+            self._dialect_insert(self.metadata.tables['response_rowid_pivot'])
             .values(responseid=responseid, rowid=None)
             .on_conflict_do_nothing()
         )
@@ -599,7 +569,7 @@ class SQLiteDB:
         int, id for the record of the data path location
         """
         stmt = (
-            insert(self.metadata.tables['local_data_paths'])
+            self._dialect_insert(self.metadata.tables['local_data_paths'])
             .values(catalog=catalog, rowid=rowid, location=location)
             .on_conflict_do_nothing()
         )
@@ -783,6 +753,70 @@ class SQLiteDB:
             self._ingest_response_and_links(result, qid, '__row')
 
         return result
+
+
+class SQLiteDB(BaseDB):
+    @property
+    def _dialect_insert(self):
+        from sqlalchemy.dialects.sqlite import insert
+        return insert
+
+    def __init__(self, db_name=None):
+        self.db_name = self._get_db_file(db_name)
+        self.aconn = create_engine(f"sqlite:///{self.db_name}")
+        self.sconn = self.aconn.connect()
+        self._create_schema()
+        self.metadata = MetaData()
+        self.metadata.reflect(self.aconn)
+
+    def _get_db_file(self, dbpath=None) -> pl.Path:
+        """
+        Gets or makes a path object for a sqlite database
+
+        Parameters:
+        dbpath: optional, None or str, input path to database
+        """
+        if dbpath is None:
+            return pl.Path("astrostash.db").resolve()
+        else:
+            return pl.Path(dbpath).resolve()
+
+    def _create_schema(self):
+        """
+        Creates initial schema for the database
+        """
+        schema = files('astrostash.schema').joinpath('base.sql').read_text()
+        for statement in schema.split(';'):
+            statement = statement.strip()
+            if statement:
+                self.sconn.execute(text(statement))
+        self.sconn.commit()
+
+    def _check_table_exists(self, name: str) -> bool:
+        """
+        Checks to ensure that a user specified table exists in the database
+
+        Parameters:
+        name: str, name of table to check if it exists
+
+        Returns:
+        bool, True if table exists (should be self explanatory)
+        """
+        return inspect(self.aconn).has_table(name)
+
+    def get_columns(self, tablename: str) -> list:
+        """
+        Gets all the column names for a specified table
+
+        Parameters:
+        tablename: str, name of table to get the columns from
+
+        Returns:
+        list, names of all columns from the specified table
+        """
+        if not self._check_table_exists(tablename):
+            raise ValueError(f"{tablename} does not exist in {self.db_name}")
+        return [col['name'] for col in inspect(self.aconn).get_columns(tablename)]
 
     def close(self):
         """
