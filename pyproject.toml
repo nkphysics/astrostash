@@ -30,6 +30,7 @@ markers = [
 addopts = "-m 'not table_schemas and not remote'"
 
 [project.optional-dependencies]
+postgres = ["psycopg2 >= 2.9.12"]
 dev = [
     "build >= 0.10.0",
     "pytest >= 8.4.1",
