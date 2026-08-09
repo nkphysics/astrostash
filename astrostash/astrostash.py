@@ -87,10 +87,19 @@ class BaseDB(ABC):
         """Return the dialect-specific insert function."""
         pass
 
-    @abstractmethod
-    def _create_schema(self):
-        """Load and execute the dialect-specific schema file."""
-        pass
+    def _create_schema(self, schema_file: str):
+        """
+        Load and execute the dialect-specific schema file.
+
+        Parameters:
+        schema_file: str, name of the .sql file in the schema directory
+        """
+        schema = files('astrostash.schema').joinpath(schema_file).read_text()
+        for statement in schema.split(';'):
+            statement = statement.strip()
+            if statement:
+                self.sconn.execute(text(statement))
+        self.sconn.commit()
 
     @abstractmethod
     def _check_table_exists(self, name: str) -> bool:
@@ -765,7 +774,7 @@ class SQLiteDB(BaseDB):
         self.db_name = self._get_db_file(db_name)
         self.aconn = create_engine(f"sqlite:///{self.db_name}")
         self.sconn = self.aconn.connect()
-        self._create_schema()
+        self._create_schema('base.sql')
         self.metadata = MetaData()
         self.metadata.reflect(self.aconn)
 
@@ -780,17 +789,6 @@ class SQLiteDB(BaseDB):
             return pl.Path("astrostash.db").resolve()
         else:
             return pl.Path(dbpath).resolve()
-
-    def _create_schema(self):
-        """
-        Creates initial schema for the database
-        """
-        schema = files('astrostash.schema').joinpath('base.sql').read_text()
-        for statement in schema.split(';'):
-            statement = statement.strip()
-            if statement:
-                self.sconn.execute(text(statement))
-        self.sconn.commit()
 
     def _check_table_exists(self, name: str) -> bool:
         """
@@ -837,17 +835,9 @@ class PostgresDB(BaseDB):
         url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
         self.aconn = create_engine(url)
         self.sconn = self.aconn.connect()
-        self._create_schema()
+        self._create_schema('base-postgres.sql')
         self.metadata = MetaData()
         self.metadata.reflect(self.aconn)
-
-    def _create_schema(self):
-        schema = files('astrostash.schema').joinpath('base-postgres.sql').read_text()
-        for statement in schema.split(';'):
-            statement = statement.strip()
-            if statement:
-                self.sconn.execute(text(statement))
-        self.sconn.commit()
 
     def _check_table_exists(self, name: str) -> bool:
         return inspect(self.aconn).has_table(name)
