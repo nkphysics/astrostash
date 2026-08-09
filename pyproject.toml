@@ -35,5 +35,6 @@ dev = [
     "build >= 0.10.0",
     "pytest >= 8.4.1",
     "pytest-cov >= 6.2.1",
+    "pytest-mock >= 3.0.0",
     "flake8 >= 7.3.0",
 ]

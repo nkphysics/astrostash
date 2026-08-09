@@ -824,3 +824,40 @@ class SQLiteDB(BaseDB):
         """
         self.sconn.close()
         self.aconn.dispose()
+
+
+class PostgresDB(BaseDB):
+    @property
+    def _dialect_insert(self):
+        from sqlalchemy.dialects.postgresql import insert
+        return insert
+
+    def __init__(self, host, port, dbname, user, password):
+        self.db_name = dbname
+        url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+        self.aconn = create_engine(url)
+        self.sconn = self.aconn.connect()
+        self._create_schema()
+        self.metadata = MetaData()
+        self.metadata.reflect(self.aconn)
+
+    def _create_schema(self):
+        schema = files('astrostash.schema').joinpath('base-postgres.sql').read_text()
+        for statement in schema.split(';'):
+            statement = statement.strip()
+            if statement:
+                self.sconn.execute(text(statement))
+        self.sconn.commit()
+
+    def _check_table_exists(self, name: str) -> bool:
+        return inspect(self.aconn).has_table(name)
+
+    def get_columns(self, tablename: str) -> list:
+        if not self._check_table_exists(tablename):
+            raise ValueError(f"{tablename} does not exist in {self.db_name}")
+        cols = inspect(self.aconn).get_columns(tablename)
+        return [c['name'] for c in cols]
+
+    def close(self):
+        self.sconn.close()
+        self.aconn.dispose()
