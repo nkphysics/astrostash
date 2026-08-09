@@ -290,3 +290,14 @@ def test_check_catalog_exists(setup):
     assert setup._check_catalog_exists("uhuru4") is True
     with pytest.raises(ValueError, match="does not exist @ HEASARC"):
         setup._check_catalog_exists("nonexistent123")
+
+
+def test_heasarc_mixed_sqlite_and_postgres_params():
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        Heasarc(
+            db_name="some/path.db",
+            pg_host="localhost",
+            pg_dbname="testdb",
+            pg_user="user",
+            pg_password="pass"
+        )

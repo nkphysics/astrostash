@@ -10,18 +10,64 @@ import time
 
 
 class Heasarc:
-    def __init__(self, db_name=None):
+    def __init__(self, db_name=None, *,
+                 pg_host=None,
+                 pg_port=5432,
+                 pg_dbname=None,
+                 pg_user=None,
+                 pg_password=None):
         """
-        Create a Heasarc instance backed by a local SQLite database.
+        Create a Heasarc instance backed by SQLite or PostgreSQL.
 
         Parameters
         ----------
         db_name : str or None, optional
             Path to the SQLite database file. If None, the default
             astrostash database location is used.
+        pg_host : str, optional
+            PostgreSQL host address
+        pg_port : int, optional
+            PostgreSQL port number. Default is 5432
+        pg_dbname : str, optional
+            PostgreSQL database name
+        pg_user : str, optional
+            PostgreSQL username
+        pg_password : str, optional
+            PostgreSQL password
         """
         self.aq = astroquery.heasarc.Heasarc()
-        self.ldb = SQLiteDB(db_name=db_name)
+
+        pg_params = {
+            "pg_host": pg_host,
+            "pg_dbname": pg_dbname,
+            "pg_user": pg_user,
+            "pg_password": pg_password,
+        }
+        pg_provided = any(v is not None for v in pg_params.values())
+        missing = [k for k, v in pg_params.items() if v is None]
+
+        if db_name is not None and pg_provided:
+            raise ValueError(
+                "Cannot specify both db_name and PostgreSQL parameters. "
+                "Use db_name for SQLite or pg_* params for PostgreSQL."
+            )
+
+        if pg_provided:
+            if missing:
+                raise ValueError(
+                    f"PostgreSQL info is missing: {', '.join(missing)}. "
+                    "host, database name, user, password are required."
+                )
+            from astrostash import PostgresDB
+            self.ldb = PostgresDB(
+                host=pg_host,
+                port=pg_port,
+                dbname=pg_dbname,
+                user=pg_user,
+                password=pg_password
+            )
+        else:
+            self.ldb = SQLiteDB(db_name=db_name)
 
     def list_catalogs(self, *,
                       master=False,
