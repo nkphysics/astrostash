@@ -26,8 +26,9 @@ dependencies = [
 markers = [
     "table_schemas: validates HEASARC catalog table schemas for astrostash compatibility",
     "remote: tests that require network access to HEASARC services",
+    "postgres: tests requiring a live PostgreSQL instance",
 ]
-addopts = "-m 'not table_schemas and not remote'"
+addopts = "-m 'not table_schemas and not remote and not postgres'"
 
 [project.optional-dependencies]
 postgres = ["psycopg2 >= 2.9.12"]
