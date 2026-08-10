@@ -1,7 +1,7 @@
 import astrostash
 import os
 import pathlib as pl
-from datetime import datetime
+from datetime import datetime, date
 import pytest
 import pandas as pd
 from astropy.table import Table
@@ -31,6 +31,8 @@ def test_need_refresh():
     assert astrostash.needs_refresh("2020-01-01", 5) is True
     d2 = datetime.today().strftime('%Y-%m-%d')
     assert astrostash.needs_refresh(d2, 5) is False
+    assert astrostash.needs_refresh(date(2020, 1, 1), 5) is True
+    assert astrostash.needs_refresh(date.today(), 5) is False
 
 
 @pytest.fixture

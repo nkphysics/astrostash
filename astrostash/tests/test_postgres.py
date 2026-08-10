@@ -187,7 +187,6 @@ def test_update_last_refreshed(pg_db):
 
 
 @pytest.mark.postgres
-@pytest.mark.xfail(reason="needs_refresh() expects str date, PostgreSQL returns datetime.date")
 def test_update_refresh_rate(pg_db):
     query_params = {"query": "PSR B0531+21", "catalog": "numaster"}
     query_hash = sha256sum(query_params)

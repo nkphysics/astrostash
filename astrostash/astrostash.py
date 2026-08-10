@@ -58,13 +58,15 @@ def make_result_hash(df: pd.DataFrame) -> str:
     return sha256sum(pdhash)
 
 
-def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
+def needs_refresh(last_refreshed: str | date, refresh_rate: int) -> bool:
     """
     Determins a if a refresh is needed based off of the set refresh rate and
     the last refresh date
 
     Parameters:
-    last_refreshed: str, date of last refresh in format YYYY-MM-DD
+    last_refreshed: str or date
+        Date of last refresh. Accepts a string in YYYY-MM-DD format (SQLite)
+        or a datetime.date object (PostgreSQL).
 
     refresh_rate: int, number of days before a refresh in needed
 
@@ -72,8 +74,11 @@ def needs_refresh(last_refreshed: str, refresh_rate: int) -> bool:
     bool, True if refresh is needed, False if not
     """
     need = False
-    today = datetime.today().date()
-    last = datetime.strptime(last_refreshed, '%Y-%m-%d').date()
+    today = date.today()
+    if isinstance(last_refreshed, date):
+        last = last_refreshed
+    else:
+        last = datetime.strptime(last_refreshed, '%Y-%m-%d').date()
     if (today - last).days >= refresh_rate:
         need = True
     return need
