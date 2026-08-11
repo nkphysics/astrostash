@@ -25,9 +25,16 @@ def setup():
     yield heasarc
 
 
+@pytest.fixture
+def remote_setup(tmp_path):
+    db_path = str(tmp_path / "test_astrostash.db")
+    heasarc = Heasarc(db_path)
+    yield heasarc
+
+
 @pytest.mark.remote
-def test_list_catalogs():
-    heasarc = Heasarc()
+def test_list_catalogs(remote_setup):
+    heasarc = remote_setup
     cat_list_get = heasarc.list_catalogs()
     assert "nicermastr" in cat_list_get["name"].values
     assert heasarc._check_catalog_exists("xtemaster") is True
@@ -42,13 +49,14 @@ def test_list_catalogs():
         refresh=True)
     assert just1.equals(mrefresh) is True
     cat_list_stash = heasarc.list_catalogs()
-    assert cat_list_get.equals(cat_list_stash) is True
-    os.remove("astrostash.db")
+    pd.testing.assert_frame_equal(
+        cat_list_get.sort_values("name").reset_index(drop=True),
+        cat_list_stash.sort_values("name").reset_index(drop=True))
 
 
 @pytest.mark.remote
-def test_query_region():
-    heasarc = Heasarc()
+def test_query_region(remote_setup):
+    heasarc = remote_setup
     pos = SkyCoord.from_name('ngc 3783')
     ngc_table1 = heasarc.query_region(position=pos, catalog='numaster')
     assert heasarc.ldb._check_table_exists("numaster") is True
@@ -58,7 +66,6 @@ def test_query_region():
         refresh_rate=30)
     assert heasarc.ldb.get_refresh_rate(2) == 30
     pd.testing.assert_frame_equal(ngc_table1, ngc_table2)
-    os.remove("astrostash.db")
 
 
 @pytest.mark.remote
@@ -121,18 +128,17 @@ def test_download_data(copy_dir_setup):
 
 
 @pytest.mark.remote
-def test_stash_full_catalog():
-    h = Heasarc()
+def test_stash_full_catalog(remote_setup):
+    h = remote_setup
     h.stash_full_catalog("uhuru4", chunk_size=200)
     assert h.ldb._check_table_exists("uhuru4")
     result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
     assert len(result) == 339
-    os.remove("astrostash.db")
 
 
 @pytest.mark.remote
-def test_stash_cache_then_mirror():
-    h = Heasarc()
+def test_stash_cache_then_mirror(remote_setup):
+    h = remote_setup
     # Cache First
     pos = SkyCoord(ra=83.633, dec=22.015, unit='deg')
     h.query_region(position=pos, catalog='uhuru4', radius='5deg')
@@ -145,12 +151,11 @@ def test_stash_cache_then_mirror():
     result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
     assert len(result) == 339
     assert result["__row"].is_unique
-    os.remove("astrostash.db")
 
 
 @pytest.mark.remote
-def test_stash_mirror_then_cache():
-    h = Heasarc()
+def test_stash_mirror_then_cache(remote_setup):
+    h = remote_setup
     # Mirror first
     h.stash_full_catalog("uhuru4", chunk_size=200)
     assert h.ldb._check_table_exists("uhuru4")
@@ -163,7 +168,6 @@ def test_stash_mirror_then_cache():
     result = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
     assert len(result) == 339
     assert result["__row"].is_unique
-    os.remove("astrostash.db")
 
 
 def test_query_region_local_cone(setup):
