@@ -200,7 +200,6 @@ def test_update_refresh_rate(pg_db):
 
 
 @pytest.mark.postgres
-@pytest.mark.xfail(reason="Bug in _get_stashed_rows")
 def test_fetch_sync(pg_db):
     def run_test(refresh, expected_df):
         mock_func_resp = Table.from_pandas(expected_df)

@@ -374,8 +374,8 @@ class BaseDB(ABC):
         else:
             self.insert_query_response_pivot(qid, rid[0])
             existing_rows = pd.read_sql(
-                """SELECT rowid FROM response_rowid_pivot
-                   WHERE responseid = :rid;""",
+                text("""SELECT rowid FROM response_rowid_pivot
+                   WHERE responseid = :rid;"""),
                 self.sconn,
                 params={"rid": rid[0]})
             if not existing_rows.empty:
@@ -545,7 +545,7 @@ class BaseDB(ABC):
                         ORDER BY responseid DESC
                         LIMIT 1
                     );"""
-            return pd.read_sql(sql, self.sconn, params={"queryid": qid})
+            return pd.read_sql(text(sql), self.sconn, params={"queryid": qid})
 
     def get_local_data_paths_by_catalog(self, catalog: str) -> pd.DataFrame:
         """
