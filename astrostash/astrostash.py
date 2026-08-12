@@ -691,28 +691,6 @@ class BaseDB(ABC):
         pd.DataFrame, rows from the table that fall within the specified
                       spatial region
         """
-        query_params = {
-            'table': table,
-            'spatial': spatial,
-            'radius': str(radius) if radius is not None else None,
-            'width': str(width) if width is not None else None,
-            'polygon': polygon
-        }
-        if hasattr(position, "to_string"):
-            query_params['position'] = position.to_string()
-        else:
-            position
-        query_params.pop("refresh_rate", None)
-        query_hash = sha256sum(query_params)
-        qdf = self.get_query(query_hash)
-        if not qdf.empty:
-            try:
-                qid = int(qdf["id"].iloc[0])
-                cached_result = self._get_stashed_rows(table, qid, '__row')
-                if not cached_result.empty:
-                    return cached_result
-            except (IndexError, KeyError):
-                pass
         self._validate_spatial_table(table)
         df = pd.read_sql_table(table, self.aconn)
         if df.empty:
@@ -761,10 +739,6 @@ class BaseDB(ABC):
             result = df[inside].reset_index(drop=True)
         else:
             raise ValueError(f"Unknown spatial mode: '{spatial}'")
-
-        if qdf.empty:
-            qid = self.insert_query(query_hash, None)
-            self._ingest_response_and_links(result, qid, '__row')
 
         return result
 
