@@ -29,17 +29,68 @@ the cache expires.
 
 ---
 
+## PostgreSQL Setup
+
+By default, astrostash uses SQLite so no additional configuration is needed.
+If you prefer PostgreSQL, install the postgres extra and pass connection
+parameters to the constructor.
+
+### Installation
+
+```bash
+pip install astrostash[postgres]
+```
+
+This installs `psycopg2`, which requires PostgreSQL development headers
+(`libpq-dev` on Debian/Ubuntu, `postgresql-devel` on RHEL/CentOS). If the
+build fails, you can install the pre-compiled binary package instead:
+
+```bash
+pip install psycopg2-binary
+```
+
+> **Note:** `psycopg2-binary` is intended for development and testing. For
+> production use, `psycopg2` (installed via `astrostash[postgres]`) is
+> recommended.
+
+### Usage
+
+```python
+from astrostash.heasarc import Heasarc
+
+h = Heasarc(
+    pg_host="localhost",
+    pg_dbname="astrostash",
+    pg_user="astrostash",
+    pg_password="secret"
+)
+
+# All methods work the same as with SQLite
+catalogs = h.list_catalogs()
+results = h.query_region(position=pos, catalog="nicermastr", radius="0.5deg")
+```
+
+The `pg_*` parameters are keyword-only. All four (`pg_host`, `pg_dbname`,
+`pg_user`, `pg_password`) are required when using PostgreSQL. `pg_port`
+defaults to 5432.
+
+> **Note:** You cannot specify both `db_name` and `pg_*` parameters.
+> Use one or the other.
+
+---
+
 ## Architecture & Concepts
 
 ### Caching Model
 
-astrostash uses a two-layer caching scheme:
+astrostash uses a two-layer caching scheme backed by either SQLite (default)
+or PostgreSQL:
 
-1. **Query tracking** — Each unique set of query parameters is hashed with
+1. **Query tracking** : Each unique set of query parameters is hashed with
    SHA-256. The hash is stored in the `queries` table along with the date it
    was last executed and an optional refresh rate.
 
-2. **Response storage** — Query results are stored as named data tables in the
+2. **Response storage** : Query results are stored as named data tables in the
    same SQLite database (e.g., a table called `nicermastr`). The `responses`
    table tracks the hash of each result set, and pivot tables link queries to
    their responses and to individual row IDs.
@@ -48,8 +99,7 @@ This means:
 - Identical queries (same parameters) reuse cached results automatically.
 - Different queries against the same catalog share a single data table,
   with pivot tables tracking which rows belong to which query.
-- The database is self-contained — it can be copied, backed up, or shared
-  as a single `.db` file.
+- The database is self-contained so it can be copied, backed up, or shared as a single `.db` file (SQLite) or accessed as a shared PostgreSQL database.
 
 ### Query Modes
 
@@ -70,11 +120,11 @@ Once stashed, they can be queried entirely offline.
 
 The workflow is two steps:
 
-1. **Stash the table** — Pull the entire catalog into your local database
+1. **Stash the table** : Pull the entire catalog into your local database
    using `stash_full_catalog`. This is a one-time operation for stable tables.
    For smaller or ad-hoc queries, `query_tap` can also be used.
 
-2. **Query locally** — Use `query_region` or `query_object` with
+2. **Query locally** : Use `query_region` or `query_object` with
    `mode='local'` to search the stashed data with spatial filters. No
    network connection is needed.
 
@@ -87,7 +137,7 @@ h = Heasarc("my_data.db")
 # Step 1: Stash the entire table (one-time, requires network)
 h.stash_full_catalog("uhuru4")
 
-# Step 2: Query locally — no network needed
+# Step 2: Query locally, no network needed
 pos = SkyCoord(ra=10.0, dec=20.0, unit="deg")
 results = h.query_region(position=pos, catalog="uhuru4",
                          radius="1deg", mode="local")
@@ -97,16 +147,16 @@ all_sky = h.query_region(catalog="uhuru4", spatial="all-sky", mode="local")
 ```
 
 > **Warning:** For large catalogs, avoid using `query_tap` with
-> `SELECT * FROM catalog` — it can trigger `DALOverflowWarning` and
+> `SELECT * FROM catalog`, it can trigger `DALOverflowWarning` and
 > fail to return all rows. Use `stash_full_catalog` instead, which
 > fetches the catalog in chunks and handles retries automatically.
 
 The key difference from caching:
 
-- **Caching** (`mode='standard'`) — Stores the results of a specific query
+- **Caching** (`mode='standard'`) : Stores the results of a specific query
   so the same query doesn't need to hit HEASARC again. The data is tied to
   that query's parameters.
-- **Mirroring** (`stash_full_catalog` + `mode='local'`) — Stores the entire table.
+- **Mirroring** (`stash_full_catalog` + `mode='local'`) : Stores the entire table.
   You can then run any spatial query against it locally, without any
   dependence on the HEASARC service.
 
@@ -122,7 +172,7 @@ The table must have `ra` and `dec` columns. Supported spatial types:
 | `'polygon'` | `polygon` | Arbitrary polygon defined by `(ra, dec)` pairs in decimal degrees |
 | `'all-sky'` | *(none)* | Returns all cached rows |
 
-Example — local cone query:
+**Example**: local cone query:
 
 ```python
 from astropy.coordinates import SkyCoord
@@ -160,14 +210,24 @@ files and records their local paths in the database for future reference.
 ### `Heasarc`
 
 ```python
-Heasarc(db_name=None)
+Heasarc(db_name=None, *,
+        pg_host=None, pg_port=5432,
+        pg_dbname=None, pg_user=None, pg_password=None)
 ```
 
-Create a HEASARC client backed by a local SQLite database.
+Create a HEASARC client backed by a local SQLite or PostgreSQL database.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `db_name` | `str` or `None` | Path to the SQLite database file. Defaults to `astrostash.db` in the current directory. |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `db_name` | `str` or `None` | `None` | Path to the SQLite database file. Defaults to `astrostash.db` in the current directory. |
+| `pg_host` | `str` or `None` | `None` | PostgreSQL host address |
+| `pg_port` | `int` | `5432` | PostgreSQL port number |
+| `pg_dbname` | `str` or `None` | `None` | PostgreSQL database name |
+| `pg_user` | `str` or `None` | `None` | PostgreSQL username |
+| `pg_password` | `str` or `None` | `None` | PostgreSQL password |
+
+> **Note:** Use either `db_name` for SQLite or `pg_*` parameters for
+> PostgreSQL. Do not specify both.
 
 ---
 
@@ -327,10 +387,13 @@ Download data products and record their local paths in the database.
 
 ## Limitations
 
-- **Alpha status** — API may change between versions.
-- **Remote tests** — Tests marked `@pytest.mark.remote` require network
+- **Alpha status** : API may change between versions.
+- **Remote tests** : Tests marked `@pytest.mark.remote` require network
   access to HEASARC. By default, `pytest` runs only local/offline tests.
-- **`spatial` parameter** — The `spatial`, `width`, and `polygon` parameters
+- **PostgreSQL support** : Requires the `postgres` extra
+  (`pip install astrostash[postgres]`). Tested with PostgreSQL 16, and 17 (18 likely works
+  and will eventually be tested).
+- **`spatial` parameter** : The `spatial`, `width`, and `polygon` parameters
   are only used when `mode='local'`. In `'standard'` and `'refresh'` modes,
   spatial filtering is delegated to the HEASARC service via
   the underlying HEASARC client.
