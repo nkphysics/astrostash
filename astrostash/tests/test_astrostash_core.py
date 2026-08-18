@@ -174,6 +174,40 @@ def test_fetch_sync(setup_sqlite_db):
     run_test(True, mock_df3)
 
 
+def test_clear_aq_cache_on_refresh(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+
+    mock_aq_instance = MagicMock()
+    mock_query_func = MagicMock()
+    mock_query_func.__self__ = mock_aq_instance
+    mock_query_func.return_value = Table.from_pandas(
+        pd.DataFrame({'__row': ['1'], 'col1': ['a']})
+    )
+
+    query_params = {'param1': 'value1', 'refresh_rate': 7, 'refresh': True}
+    sql.fetch_sync(mock_query_func, 'test_table', query_params, None,
+                   refresh=True)
+
+    mock_aq_instance.clear_cache.assert_called_once()
+
+
+def test_no_clear_cache_without_refresh(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+
+    mock_aq_instance = MagicMock()
+    mock_query_func = MagicMock()
+    mock_query_func.__self__ = mock_aq_instance
+    mock_query_func.return_value = Table.from_pandas(
+        pd.DataFrame({'__row': ['1'], 'col1': ['a']})
+    )
+
+    query_params = {'param1': 'value1', 'refresh_rate': 7, 'refresh': False}
+    sql.fetch_sync(mock_query_func, 'test_table', query_params, None,
+                   refresh=False)
+
+    mock_aq_instance.clear_cache.assert_not_called()
+
+
 def test_insert_local_data_path(setup_sqlite_db):
     sql = setup_sqlite_db[0]
     demo_product_path = "/DEMO/PATH/TO/nicermastr/1013010107/"

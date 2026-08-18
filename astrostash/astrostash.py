@@ -637,6 +637,8 @@ class BaseDB(ABC):
                 qid = self.insert_query(query_hash, refresh_rate)
             else:
                 self.update_last_refreshed(qid)
+            if refresh and hasattr(query_func, '__self__'):
+                query_func.__self__.clear_cache()
             try:
                 df = query_func(*args,
                                 **query_params,
