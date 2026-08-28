@@ -1,7 +1,9 @@
 import pathlib as pl
 import sqlite3
 from abc import ABC, abstractmethod
-from sqlalchemy import MetaData, create_engine, inspect, text
+from sqlalchemy import (
+    MetaData, column, create_engine, inspect, select, table, text
+)
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
@@ -534,18 +536,24 @@ class BaseDB(ABC):
         valid_cols = self.get_columns(catalog)
         if idcol not in valid_cols:
             raise ValueError(f"Column {idcol} does not exist in {catalog}")
-        else:
-            sql = f"""
-                    SELECT c.* FROM {catalog} c
-                    INNER JOIN response_rowid_pivot rrp ON
-                    c.{idcol} = rrp.rowid
-                    WHERE rrp.responseid = (
-                        SELECT responseid FROM query_response_pivot
-                        WHERE queryid = :queryid
-                        ORDER BY responseid DESC
-                        LIMIT 1
-                    );"""
-            return pd.read_sql(text(sql), self.sconn, params={"queryid": qid})
+
+        cat = table(catalog, *[column(c) for c in valid_cols])
+        rrp = table('response_rowid_pivot',
+                     column('rowid'), column('responseid'))
+        qrp = table('query_response_pivot',
+                     column('queryid'), column('responseid'))
+
+        subq = (select(qrp.c.responseid)
+                .where(qrp.c.queryid == qid)
+                .order_by(qrp.c.responseid.desc())
+                .limit(1)
+                .scalar_subquery())
+
+        stmt = (select(cat)
+                .join(rrp, cat.c[idcol] == rrp.c.rowid)
+                .where(rrp.c.responseid == subq))
+
+        return pd.read_sql(stmt, self.sconn)
 
     def get_local_data_paths_by_catalog(self, catalog: str) -> pd.DataFrame:
         """
