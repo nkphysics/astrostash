@@ -242,7 +242,7 @@ def test_query_region_cone(setup_spatial_db):
     sql = setup_spatial_db
     center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
     result = sql.query_region('test_cat', position=center,
-                              spatial='cone', radius='0.2deg')
+                              spatial='cone', radius='0.6deg')
     assert len(result) == 2
     names = sorted(result['name'].tolist())
     assert names == ['a', 'b']
@@ -252,7 +252,7 @@ def test_query_region_cone_with_quantity(setup_spatial_db):
     sql = setup_spatial_db
     center = SkyCoord(ra=10.0, dec=20.0, unit='deg')
     result = sql.query_region('test_cat', position=center,
-                              spatial='cone', radius=0.2 * u.deg)
+                              spatial='cone', radius=0.6 * u.deg)
     assert len(result) == 2
     names = sorted(result['name'].tolist())
     assert names == ['a', 'b']
@@ -261,7 +261,7 @@ def test_query_region_cone_with_quantity(setup_spatial_db):
 def test_query_region_cone_string_position(setup_spatial_db):
     sql = setup_spatial_db
     result = sql.query_region('test_cat', position='10d 20d',
-                              spatial='cone', radius='0.2deg')
+                              spatial='cone', radius='0.6deg')
     assert len(result) == 2
     names = sorted(result['name'].tolist())
     assert names == ['a', 'b']

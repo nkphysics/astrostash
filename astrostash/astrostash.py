@@ -198,11 +198,13 @@ class BaseDB(ABC):
         Converts a string or Quantity angle to degrees
 
         Parameters:
-        value: str or astropy.units.Quantity, angle value
+        value: str, astropy.units.Quantity, or float, angle value
 
         Returns:
         float, angle in degrees
         """
+        if isinstance(value, (int, float, np.floating)):
+            return float(value)
         if isinstance(value, str):
             return Angle(value).deg
         return value.to(u.deg).value
@@ -744,44 +746,49 @@ class BaseDB(ABC):
                 raise ValueError("width is required for box queries")
             return self._query_region_box(table, position, width)
 
-        df = pd.read_sql_table(table, self.aconn)
-        if df.empty:
-            return df
-        ra = df['ra'].to_numpy()
-        dec = df['dec'].to_numpy()
-
-        result = df
-        if spatial == 'all-sky':
-            pass
         elif spatial == 'cone':
             if position is None:
                 raise ValueError("position is required for cone queries")
-            coord = self._normalize_position(position)
-            cra, cdec = coord.ra.deg, coord.dec.deg
             if radius is None:
                 raise ValueError("radius is required for local cone queries")
+            coord = self._normalize_position(position)
+            cra, cdec = coord.ra.deg, coord.dec.deg
             r_deg = self._parse_angle(radius)
-            ra_rad = np.radians(ra)
-            dec_rad = np.radians(dec)
+            df = self._query_region_box(table, position, 2 * r_deg)
+            if df.empty:
+                return df
+            ra = df['ra'].to_numpy()
+            dec = df['dec'].to_numpy()
             cra_rad = np.radians(cra)
             cdec_rad = np.radians(cdec)
-            dlat = dec_rad - cdec_rad
-            dlon = ra_rad - cra_rad
+            dlat = np.radians(dec) - cdec_rad
+            dlon = np.radians(ra) - cra_rad
             a = np.sin(dlat / 2) ** 2 + \
-                np.cos(cdec_rad) * np.cos(dec_rad) * \
+                np.cos(cdec_rad) * np.cos(np.radians(dec)) * \
                 np.sin(dlon / 2) ** 2
             dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
-            mask = dist_deg <= r_deg
-            result = df[mask].reset_index(drop=True)
+            return df[dist_deg <= r_deg].reset_index(drop=True)
+
         elif spatial == 'polygon':
             if polygon is None:
                 raise ValueError("polygon is required for polygon queries")
+            ras = [v[0] for v in polygon]
+            decs = [v[1] for v in polygon]
+            center = SkyCoord(ra=np.mean(ras), dec=np.mean(decs), unit='deg')
+            width_deg = max(max(ras) - min(ras), max(decs) - min(decs))
+            df = self._query_region_box(table, center, width_deg)
+            if df.empty:
+                return df
+            ra = df['ra'].to_numpy()
+            dec = df['dec'].to_numpy()
             inside = self._point_in_polygon(ra, dec, polygon)
-            result = df[inside].reset_index(drop=True)
+            return df[inside].reset_index(drop=True)
+
+        elif spatial == 'all-sky':
+            return pd.read_sql_table(table, self.aconn)
+
         else:
             raise ValueError(f"Unknown spatial mode: '{spatial}'")
-
-        return result
 
 
 class SQLiteDB(BaseDB):
