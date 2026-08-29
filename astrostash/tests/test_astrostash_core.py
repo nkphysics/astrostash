@@ -287,6 +287,24 @@ def test_query_region_box_with_quantity(setup_spatial_db):
     assert names == ['a', 'b']
 
 
+def test_query_region_box_ra_wrapping(setup_sqlite_db):
+    sql, db_path = setup_sqlite_db
+    df = pd.DataFrame({
+        'ra': [359.0, 0.0, 180.0, 1.0],
+        'dec': [20.0, 20.0, 20.0, 20.0],
+        'name': ['a', 'b', 'c', 'd'],
+        '__row': ['1', '2', '3', '4']
+    })
+    sql.ingest_table(df, 'wrap_cat')
+
+    center = SkyCoord(ra=0.0, dec=20.0, unit='deg')
+    result = sql.query_region('wrap_cat', position=center,
+                              spatial='box', width='4deg')
+    assert len(result) == 3
+    names = sorted(result['name'].tolist())
+    assert names == ['a', 'b', 'd']
+
+
 def test_query_region_polygon(setup_spatial_db):
     sql = setup_spatial_db
     verts = [(9.8, 19.8), (10.3, 19.8), (10.3, 20.3), (9.8, 20.3)]

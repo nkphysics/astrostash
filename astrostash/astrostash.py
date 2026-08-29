@@ -2,7 +2,7 @@ import pathlib as pl
 import sqlite3
 from abc import ABC, abstractmethod
 from sqlalchemy import (
-    MetaData, column, create_engine, inspect, select, table, text
+    MetaData, column, create_engine, inspect, or_, select, table, text
 )
 import pandas as pd
 import numpy as np
@@ -666,14 +666,32 @@ class BaseDB(ABC):
         cdec = float(coord.dec.deg)
         half = float(self._parse_angle(width)) / 2.0
 
+        ra_min = cra - half
+        ra_max = cra + half
+        dec_min = cdec - half
+        dec_max = cdec + half
+
         cols = self.get_columns(catalog)
         cat = table(catalog, *[column(c) for c in cols])
 
-        stmt = (select(cat)
-                .where(cat.c.ra >= cra - half)
-                .where(cat.c.ra <= cra + half)
-                .where(cat.c.dec >= cdec - half)
-                .where(cat.c.dec <= cdec + half))
+        if ra_min < 0:
+            # box crosses 0: match high-RA end OR low-RA end
+            stmt = (select(cat)
+                    .where(or_(cat.c.ra >= 360 + ra_min, cat.c.ra <= ra_max))
+                    .where(cat.c.dec >= dec_min)
+                    .where(cat.c.dec <= dec_max))
+        elif ra_max > 360:
+            # box crosses 360: match high-RA end OR low-RA end
+            stmt = (select(cat)
+                    .where(or_(cat.c.ra >= ra_min, cat.c.ra <= ra_max - 360))
+                    .where(cat.c.dec >= dec_min)
+                    .where(cat.c.dec <= dec_max))
+        else:
+            stmt = (select(cat)
+                    .where(cat.c.ra >= ra_min)
+                    .where(cat.c.ra <= ra_max)
+                    .where(cat.c.dec >= dec_min)
+                    .where(cat.c.dec <= dec_max))
 
         return pd.read_sql(stmt, self.sconn)
 
