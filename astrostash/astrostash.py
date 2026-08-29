@@ -660,6 +660,23 @@ class BaseDB(ABC):
             self._stash_table(df, table_name, idcol)
         return self._get_stashed_rows(table_name, qid, idcol)
 
+    def _query_region_box(self, catalog: str, position, width) -> pd.DataFrame:
+        coord = self._normalize_position(position)
+        cra = float(coord.ra.deg)
+        cdec = float(coord.dec.deg)
+        half = float(self._parse_angle(width)) / 2.0
+
+        cols = self.get_columns(catalog)
+        cat = table(catalog, *[column(c) for c in cols])
+
+        stmt = (select(cat)
+                .where(cat.c.ra >= cra - half)
+                .where(cat.c.ra <= cra + half)
+                .where(cat.c.dec >= cdec - half)
+                .where(cat.c.dec <= cdec + half))
+
+        return pd.read_sql(stmt, self.sconn)
+
     def query_region(self, table: str,
                      position=None,
                      spatial: str = 'cone',
@@ -683,8 +700,7 @@ class BaseDB(ABC):
         spatial : str
             Type of spatial query: ``'cone'``, ``'box'``, ``'polygon'``,
             and ``'all-sky'``. Defaults to ``'cone'``.
-        radius : str or `~astropy.units.Quantity`, [optional for
-            spatial == ``'cone'``]
+        radius : str or `~astropy.units.Quantity`,
             The string must be parsable by `~astropy.coordinates.Angle`.
             The appropriate `~astropy.units.Quantity` object from
             `astropy.units` may also be used.
@@ -702,6 +718,14 @@ class BaseDB(ABC):
                       spatial region
         """
         self._validate_spatial_table(table)
+
+        if spatial == 'box':
+            if position is None:
+                raise ValueError("position is required for box queries")
+            if width is None:
+                raise ValueError("width is required for box queries")
+            return self._query_region_box(table, position, width)
+
         df = pd.read_sql_table(table, self.aconn)
         if df.empty:
             return df
@@ -711,37 +735,26 @@ class BaseDB(ABC):
         result = df
         if spatial == 'all-sky':
             pass
-        elif spatial in ('cone', 'box'):
+        elif spatial == 'cone':
             if position is None:
-                raise ValueError(
-                    "position is required for cone and box queries")
+                raise ValueError("position is required for cone queries")
             coord = self._normalize_position(position)
             cra, cdec = coord.ra.deg, coord.dec.deg
-
-            if spatial == 'cone':
-                if radius is None:
-                    raise ValueError("radius is required for cone queries")
-                r_deg = self._parse_angle(radius)
-                ra_rad = np.radians(ra)
-                dec_rad = np.radians(dec)
-                cra_rad = np.radians(cra)
-                cdec_rad = np.radians(cdec)
-                dlat = dec_rad - cdec_rad
-                dlon = ra_rad - cra_rad
-                a = np.sin(dlat / 2) ** 2 + \
-                    np.cos(cdec_rad) * np.cos(dec_rad) * \
-                    np.sin(dlon / 2) ** 2
-                dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
-                mask = dist_deg <= r_deg
-                result = df[mask].reset_index(drop=True)
-            elif spatial == 'box':
-                if width is None:
-                    raise ValueError("width is required for box queries")
-                w_deg = self._parse_angle(width)
-                half = w_deg / 2.0
-                mask = ((ra >= cra - half) & (ra <= cra + half) &
-                        (dec >= cdec - half) & (dec <= cdec + half))
-                result = df[mask].reset_index(drop=True)
+            if radius is None:
+                raise ValueError("radius is required for local cone queries")
+            r_deg = self._parse_angle(radius)
+            ra_rad = np.radians(ra)
+            dec_rad = np.radians(dec)
+            cra_rad = np.radians(cra)
+            cdec_rad = np.radians(cdec)
+            dlat = dec_rad - cdec_rad
+            dlon = ra_rad - cra_rad
+            a = np.sin(dlat / 2) ** 2 + \
+                np.cos(cdec_rad) * np.cos(dec_rad) * \
+                np.sin(dlon / 2) ** 2
+            dist_deg = np.degrees(2 * np.arcsin(np.sqrt(a)))
+            mask = dist_deg <= r_deg
+            result = df[mask].reset_index(drop=True)
         elif spatial == 'polygon':
             if polygon is None:
                 raise ValueError("polygon is required for polygon queries")
