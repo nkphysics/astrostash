@@ -1,3 +1,18 @@
+# v0.3.0
+
+## New Features
+- Added support for PostgreSQL which can be installed with `pip install astrostash[postgres]` and then just pass `pg_*` connection parameters (see docs) to the `Heasarc` constructor
+- Created bounding box prefilter for cone and polygon spatial queries
+
+## Improvements
+- Migrated `SQLiteDB` internals to SQLAlchemy for improved reliability
+- Added `astroquery` cache clearing to avoid stale results in `fetch_sync`
+- Improved box spatial queries to use a direct sql query
+
+## Bug Fixes
+- Fixed `needs_refresh` to handle `datetime.date` types (required for PostgreSQL)
+- Fixed unexpected behavior with astroquery's caching by clearing astroquery's cache in favor of astrostash's
+
 # v0.2.3
 
 ## Bug Fixes
